@@ -66,7 +66,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, cmove=5, hp=100, mmove=5, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, cmove=3, hp=100, mmove=3, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -86,12 +86,17 @@ class map_manager:
         self.visited_tiles = []
         
     
-    def move_unit(self, unit, pos):
-        tile = self.Map[pos]
+    def move_unit(self, unit, dir):
+        move_pos = tuple(np.add(unit.pos, dir))
+        tile = self.Map[move_pos]
         try:
             assert(tile.visited)
         except AssertionError:
-            print("Tile {0} not reachable by unit".format(pos))
+            pass
+            #NOTE: this tells us if the unit does not have the movement to reach this tile
+            #Uncomment this when using unit's movement!!!
+            #print("Tile {0} not reachable by unit".format(pos))
+        """
         if(tile.is_attack == True):
             move_tile = tile.move_parent 
             self.Map[unit.pos].unit_ref = None
@@ -101,10 +106,14 @@ class map_manager:
             
             self.combat(unit, tile.unit_ref)
         else:
-            self.Map[unit.pos].unit_ref = None
-            unit.pos = pos
-            unit.curr_move -= self.Map[pos].move_cost
-            self.Map[pos].unit_ref = unit
+        """
+        move_tile = tile
+        self.Map[unit.pos].unit_ref = None
+        unit.pos = move_tile.pos
+        unit.curr_move -= move_tile.move_cost
+        move_tile.unit_ref = unit
+
+
         self.clear_movement()
         
     def combat(self, att_unit, def_unit):
