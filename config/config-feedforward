@@ -2,8 +2,8 @@
 
 [NEAT]
 fitness_criterion     = mean
-fitness_threshold     = 5.0
-pop_size              = 150
+fitness_threshold     = 5.6
+pop_size              = 250
 reset_on_extinction   = False
 
 [DefaultGenome]
@@ -73,8 +73,8 @@ compatibility_threshold = 3.0
 
 [DefaultStagnation]
 species_fitness_func = max
-max_stagnation       = 20
-species_elitism      = 2
+max_stagnation       = 100
+species_elitism      = 3
 
 [DefaultReproduction]
 elitism            = 2

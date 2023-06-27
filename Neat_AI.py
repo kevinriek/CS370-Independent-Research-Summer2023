@@ -11,94 +11,93 @@ from GameManager import map_manager, Tile, Unit, Team
 
 def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
-        #genome.fitness = 1.0
         net = neat.nn.FeedForwardNetwork.create(genome, config)
-        games_run = 10
-        wins = 0
         
-        #for i in range(games_run):
+        games_run = 5
+        dist_list = []
         dimensions = (5,5)
-        Map = map_manager(dimensions)
-        
-        pos1 = (random.randint(0, Map.Map.shape[0]-1), random.randint(0, Map.Map.shape[1]-1))
-        unit1 = Map.place_unit(pos1, 0)
-        
-        pos2 = (random.randint(0, Map.Map.shape[0]-1), random.randint(0, Map.Map.shape[1]-1))
-        while (unit1.pos == pos2):
-            pos2 = (random.randint(0, Map.Map.shape[0]-1), random.randint(0, Map.Map.shape[1]-1)) 
-        
-        unit2 = Map.place_unit(pos2, 1)
-        #print("GENOME EVALUATION: ")
+        move_dist = 4
 
-        
-        #dist_list = []
-        while (Map.Game_result() == -1 and Map.turn_count < 1): #Turn Count limit may have to be modified
-            #print("unit 1 pos: " + str(unit1.pos))
-            #print("unit 2 pos: " + str(unit2.pos))
+        for i in range(games_run):
+            pos_pick = random.randint(0, 3)
+            pos_1 = [0, 0]
+            pos_2 = [0, 0]
+            if (pos_pick == 0):
+                pos_1 = [0, 0]
+                pos_2 = [4, 4]
+            elif (pos_pick == 1):
+                pos_1 = [4, 0]
+                pos_2 = [0, 4]
+            elif (pos_pick == 2):
+                pos_1 = [0, 4]
+                pos_2 = [4, 0]
+            elif(pos_pick == 3):
+                pos_1 = [4, 4]
+                pos_2 = [0, 0]
+
+            pos1 = tuple(pos_1)
+            pos2 = tuple(pos_2)
+            dist = math.dist(pos1, pos2)
             
-            input_list = []
-            input_list.append(unit1.pos[0]/(dimensions[0]-1))
-            input_list.append(unit1.pos[1]/(dimensions[1]-1))
+            #print("GENOME EVALUATION: ")
 
-            input_list.append(unit2.pos[0]/(dimensions[0]-1))
-            input_list.append(unit2.pos[1]/(dimensions[1]-1))
+            #dist_list = []
+            turns = 0
+            while (dist > 0.0 and turns < 2): #Turn Count limit may have to be modified
+                #print("unit 1 pos: " + str(pos1))
+                #print("unit 2 pos: " + str(pos2))
+                
+                input_list = []
+                input_list.append(pos1[0]/(dimensions[0]-1))
+                input_list.append(pos1[1]/(dimensions[1]-1))
 
-            #print("input pos: " + str(input_list))
-            """
-            for row in Map.Map:
-                for tile in row:
-                    if (tile.unit_ref is not None and tile.unit_ref.Team == 1):
-                        input_list.append(1.0)
-                    else:
-                        input_list.append(0.0)
-            """
+                input_list.append(pos2[0]/(dimensions[0]-1))
+                input_list.append(pos2[1]/(dimensions[1]-1))
 
-            input_tup = tuple(input_list)
-            format_in = [ '%.2f' % elem for elem in input_tup ]
-            #print("input vector: " + str(format_in))
-            #find out how to dictate output dimensions
+                #print("input pos: " + str(input_list))
 
-            #use output dimensions
-            output = net.activate(input_tup)
+                input_tup = tuple(input_list)
+                format_in = [ '%.2f' % elem for elem in input_tup ]
+                #print("input vector: " + str(format_in))
+
+                #use output dimensions
+                output = net.activate(input_tup)
+                
+                format_out = [ '%.2f' % elem for elem in output ]
+                #print("output vector: " + str(format_out))
+                
+                move = [round(output[0] * move_dist), round(output[1] * move_dist)]
+                #move = (max(min(round(output[0] * unit1.max_move), dimensions[0]-1-unit1.pos[0]), -unit1.pos[0]),
+                #        max(min(round(output[1] * unit1.max_move), dimensions[1]-1-unit1.pos[1]), -unit1.pos[1]))
+                #print("move: " + str(move))
+                new_pos = list(np.add(pos1, move))
+                if (new_pos[0] >= dimensions[0]):
+                    new_pos[0] = dimensions[0]-1
+                if (new_pos[1] >= dimensions[1]):
+                    new_pos[1] = dimensions[1]-1
+
+                if (new_pos[0] < 0):
+                    new_pos[0] = 0
+                if (new_pos[1] < 0):
+                    new_pos[1] = 0
+                pos1 = tuple(new_pos)
+
+                #print("new_pos: "+ str(pos1))
+                turns += 1
+            dist_list.append(math.dist(pos1, pos2))
             
-            format_out = [ '%.2f' % elem for elem in output ]
-            #print("output vector: " + str(format_out))
-            #move_index = np.argmax(output) 
-            """
-            print("move index: " + str(move_index))
-            print("max move: " + str(unit1.max_move))
-            print("dimensions: " + str(dimensions))
-            print("adjusted move x:" + str(round((output[1] * unit1.max_move))))
-            print("unit position  x:" + str(unit1.pos[1]))
             
-            print("adjusted move y:" + str(round((output[0] * unit1.max_move))))
-            print("unit position  y:" + str(unit1.pos[0]))
-            """
-            Map.find_movement(unit1)
-            move = (max(min(round(output[0] * unit1.max_move), dimensions[0]-1-unit1.pos[0]), -unit1.pos[0]),
-                    max(min(round(output[1] * unit1.max_move), dimensions[1]-1-unit1.pos[1]), -unit1.pos[1]))
-            #print("move: " + str(move))
-
-            Map.move_unit(unit1, move)
-            #print("new_pos: "+ str(unit1.pos))
-
-            #Back to computer's turn
-            Map.Turn()
-            Map.Turn()
-            
-            if (Map.Game_result() == 0):
-                wins += 1
-            #dist_list.append()
-            
-        #Figure out Fitness function
         #genome.fitness = (wins / games_run)
         
-        
-        #print("end unit 1 pos: " + str(unit1.pos))
-        #print("end unit 2 pos: " + str(unit2.pos))
-        #print("fitness: " + str(5.65685 - math.dist(unit1.pos, unit2.pos)))
         #print("")
-        genome.fitness = 5.65685 - math.dist(unit1.pos, unit2.pos)
+        #print("END GENOME EVALUATION: ")
+
+        #print("end unit 1 pos: " + str(pos1))
+        #print("end unit 2 pos: " + str(pos2))
+        #print("fitness: " + str(5.656854249492381 - (sum(dist_list)/games_run)))
+        #print("")
+        #print("")
+        genome.fitness = 5.656854249492381 - (sum(dist_list)/games_run)
         
         
 def run(config_file):
@@ -117,7 +116,7 @@ def run(config_file):
     p.add_reporter(neat.Checkpointer(5))
 
     # Run for up to *generations* generations.
-    winner = p.run(eval_genomes, 5000)
+    winner = p.run(eval_genomes, 300)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
