@@ -13,71 +13,81 @@ def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         
-        games_run = 10
+        games_run = 20
         wins = 0
-        dimensions = (5,5)
+        dimensions = (7,7)
         manager = map_manager(dimensions)
 
+        
         for i in range(games_run):
+            """
             pos_pick = random.randint(0, 3)
             pos_1 = (0, 0)
             pos_2 = (0, 0)
             if (pos_pick == 0):
                 pos_1 = (0, 0)
-                pos_2 = (4, 4)
+                pos_2 = (6, 6)
             elif (pos_pick == 1):
-                pos_1 = (4, 0)
-                pos_2 = (0, 4)
+                pos_1 = (6, 0)
+                pos_2 = (0, 6)
             elif (pos_pick == 2):
-                pos_1 = (0, 4)
-                pos_2 = (4, 0)
+                pos_1 = (0, 6)
+                pos_2 = (6, 0)
             elif(pos_pick == 3):
-                pos_1 = (4, 4)
+                pos_1 = (6, 6)
                 pos_2 = (0, 0)
+            """
+            pos_1 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1))
+            pos_2 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1))
+            while (pos_1 == pos_2):
+                pos_2 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1)) 
 
             manager.reset_map()
             unit1 = manager.place_unit(pos_1, 0)
             unit2 = manager.place_unit(pos_2, 1)
 
             #print("GENOME EVALUATION: ")
-            while (manager.game_result() == -1 and manager.turn_count < 2): #Turn Count limit may have to be modified
-                manager.find_movement(unit1)
+            while (manager.game_result() == -1 and manager.turn_count < 5): #Turn Count limit may have to be modified
+                move_list = manager.find_movement(unit1)
                 
+                input_list = list(np.zeros((3)))
+
+                win_move = (0, 0)
+                win_weight = 0.0
+                for move in move_list:
+                    move_pos = move.pos
+                    if move.is_attack:      #move is of Tile Class
+                        move_pos = move.move_parent.pos
+                        manager.sim_combat(unit1, move.unit_ref) 
+                    
+                    input_list[0] = (unit2.pos[0] - move_pos[0])/(dimensions[0]-1)
+                    input_list[1] = (unit2.pos[1] - move_pos[1])/(dimensions[1]-1)
+                    input_list[2] = (unit2.temp_hp / 100.0) #Current max hp is 100 
+
+                    #VERY IMPORTANT, must be executed after SIMULATED combat!!!
+                    if (move.is_attack):
+                        manager.reset_temp_hp() 
+
+                    input_tup = tuple(input_list)
+                    format_in = [ '%.2f' % elem for elem in input_tup ]
+                    #print("input vector: " + str(format_in))
+                    
+                    output = net.activate(input_tup)
+                    
+                    format_out = [ '%.2f' % elem for elem in output ]
+                    #print("output vector: " + str(format_out))
+
+                    #print(len(output[0]))
+                    #print(len(win_weight))
+                    if (output[0] > win_weight):
+                        win_move = move.pos
+                        win_weight = output[0]
+
                 #print("unit 1 pos: " + str(unit1.pos))
                 #print("unit 2 pos: " + str(unit2.pos))
                 
-                input_list = []
-                #input_list.append(pos1[0]/(dimensions[0]-1))
-                #input_list.append(pos1[1]/(dimensions[1]-1))
-
-                input_list.append(unit2.pos[0]/(dimensions[0]-1))
-                input_list.append(unit2.pos[1]/(dimensions[1]-1))
-
-                input_tup = tuple(input_list)
-                #format_in = [ '%.2f' % elem for elem in input_tup ]
-                #print("input vector: " + str(format_in))
-
-                #use output dimensions
-                output = net.activate(input_tup)
-                
-                #format_out = [ '%.2f' % elem for elem in output ]
-                #print("output vector: " + str(format_out))
-                
-                move = [round(output[0] * unit1.max_move), round(output[1] * unit1.max_move)]
-                #move = (max(min(round(output[0] * unit1.max_move), dimensions[0]-1-unit1.pos[0]), -unit1.pos[0]),
-                #        max(min(round(output[1] * unit1.max_move), dimensions[1]-1-unit1.pos[1]), -unit1.pos[1]))
                 #print("move: " + str(move))
-                new_pos = list(np.add(unit1.pos, move))
-                if (new_pos[0] >= dimensions[0]):
-                    new_pos[0] = dimensions[0]-1
-                if (new_pos[1] >= dimensions[1]):
-                    new_pos[1] = dimensions[1]-1
-
-                if (new_pos[0] < 0):
-                    new_pos[0] = 0
-                if (new_pos[1] < 0):
-                    new_pos[1] = 0
-                manager.move_unit(unit1, tuple(new_pos))
+                manager.move_unit(unit1, tuple(win_move))
 
                 #print("new_pos: "+ str(unit1.pos))
                 manager.turn_count += 1

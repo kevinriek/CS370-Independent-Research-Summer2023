@@ -43,8 +43,11 @@ class map_manager:
 
     def find_movement(self, unit):
         assert(unit is not None)
-        unit.curr_move = unit.max_move
+
+        self.clear_movement()
+        #unit.curr_move = unit.max_move
         self.dijstrkas(unit)
+        return self.visited_tiles
     
     def dijstrkas(self, unit):
         prio_queue = queue.PriorityQueue()
@@ -77,7 +80,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, hp=100, mmove=10, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, hp=100, mmove=5, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -102,10 +105,10 @@ class map_manager:
         #move_pos = tuple(np.add(unit.pos, dir))
         move_pos = pos
         tile = self.Map[move_pos]
-        try:
+        """        try:                 #CURRENTLY AM NOT SETTING THE VISITED STAT SO THIS DOES NOT WORK
             assert(tile.visited)
         except AssertionError:
-            print("Tile {0} not reachable by unit".format(move_pos))
+            print("Tile {0} not reachable by unit".format(move_pos))"""
 
         if(tile.is_attack == True):
             move_tile = tile.move_parent 
@@ -121,10 +124,17 @@ class map_manager:
             unit.pos = move_tile.pos
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
-
-
-        self.clear_movement()
         
+    def sim_combat(self, att_unit, def_unit):
+        #att_dmg = (def_unit.Def / att_unit.Att) * 20
+        def_dmg = (att_unit.Att / def_unit.Def) * 100
+
+        def_unit.temp_hp = def_unit.hp - def_dmg
+
+    def reset_temp_hp(self):
+        for unit in self.Units:
+            unit.temp_hp = unit.hp
+
     def combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
         def_dmg = (att_unit.Att / def_unit.Def) * 100
@@ -196,6 +206,7 @@ class Unit:
     def __init__(self, pos, hp, mmove, Att, Def, Team):
         self.pos = pos
         self.hp = hp
+        self.temp_hp = hp
         
         self.max_move = mmove
         self.curr_move = mmove
