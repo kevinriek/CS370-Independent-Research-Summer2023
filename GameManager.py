@@ -30,9 +30,20 @@ class map_manager:
             for j in range(Map.shape[1]):
                 Map[i,j] = Tile((i, j), None)
         return Map
-            
+
+    def reset_map(self):
+        for i in range(self.Map.shape[0]):
+            for j in range(self.Map.shape[1]):
+                self.Map[i, j].unit_ref = None
+        for team in self.Teams:
+            team.units = []
+        self.curr_team = 0
+        self.turn_count = 0
+                
+
     def find_movement(self, unit):
         assert(unit is not None)
+        unit.curr_move = unit.max_move
         self.dijstrkas(unit)
     
     def dijstrkas(self, unit):
@@ -56,7 +67,7 @@ class map_manager:
                     pass
                 else:
                     new_cost = Map[new_pos].tile_cost + curr_tile.move_cost
-                    if (Map[new_pos].move_cost > new_cost and new_cost <= unit.curr_move):
+                    if (Map[new_pos].move_cost > new_cost and new_cost <= unit.max_move):
                         Map[new_pos].move_cost = new_cost
                         Map[new_pos].move_parent = curr_tile
                         if (Map[new_pos].unit_ref is not None):
@@ -66,7 +77,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, cmove=3, hp=100, mmove=3, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, hp=100, mmove=10, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -76,7 +87,8 @@ class map_manager:
     def print_units(self):
         for unit in self.Units:
             print(unit)
-                
+
+
     def clear_movement(self):
         for i in range(self.Map.shape[0]):
             for j in range(self.Map.shape[1]):
@@ -86,17 +98,15 @@ class map_manager:
         self.visited_tiles = []
         
     
-    def move_unit(self, unit, dir):
-        move_pos = tuple(np.add(unit.pos, dir))
+    def move_unit(self, unit, pos):
+        #move_pos = tuple(np.add(unit.pos, dir))
+        move_pos = pos
         tile = self.Map[move_pos]
         try:
             assert(tile.visited)
         except AssertionError:
-            pass
-            #NOTE: this tells us if the unit does not have the movement to reach this tile
-            #Uncomment this when using unit's movement!!!
-            #print("Tile {0} not reachable by unit".format(pos))
-        """
+            print("Tile {0} not reachable by unit".format(move_pos))
+
         if(tile.is_attack == True):
             move_tile = tile.move_parent 
             self.Map[unit.pos].unit_ref = None
@@ -106,12 +116,11 @@ class map_manager:
             
             self.combat(unit, tile.unit_ref)
         else:
-        """
-        move_tile = tile
-        self.Map[unit.pos].unit_ref = None
-        unit.pos = move_tile.pos
-        unit.curr_move -= move_tile.move_cost
-        move_tile.unit_ref = unit
+            move_tile = tile
+            self.Map[unit.pos].unit_ref = None
+            unit.pos = move_tile.pos
+            unit.curr_move -= move_tile.move_cost
+            move_tile.unit_ref = unit
 
 
         self.clear_movement()
@@ -128,6 +137,7 @@ class map_manager:
             self.Map[def_unit.pos].unit_ref = None
             del def_unit
     
+    """
     def Turn(self):
         if (self.curr_team == 0):
             self.curr_team = 1
@@ -138,9 +148,10 @@ class map_manager:
         for unit in self.Units:
             if (unit.Team == self.curr_team):
                 unit.curr_move = unit.max_move
+    """
     
     #returns -1 if the game is not over, else returns the number of the winning team
-    def Game_result(self):
+    def game_result(self):
         if len(self.Teams[0].units) == 0:
             return 1
         if len(self.Teams[1].units) == 0:
@@ -182,12 +193,13 @@ class Team:
         self.units = []
 
 class Unit:
-    def __init__(self, pos, cmove, hp, mmove, Att, Def, Team):
+    def __init__(self, pos, hp, mmove, Att, Def, Team):
         self.pos = pos
-        self.curr_move = cmove
         self.hp = hp
         
         self.max_move = mmove
+        self.curr_move = mmove
+
         self.Att = Att
         self.Def = Def
         self.Team = Team

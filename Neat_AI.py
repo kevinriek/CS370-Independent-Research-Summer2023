@@ -13,64 +13,61 @@ def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         
-        games_run = 5
-        dist_list = []
+        games_run = 10
+        wins = 0
         dimensions = (5,5)
-        move_dist = 4
+        manager = map_manager(dimensions)
 
         for i in range(games_run):
             pos_pick = random.randint(0, 3)
-            pos_1 = [0, 0]
-            pos_2 = [0, 0]
+            pos_1 = (0, 0)
+            pos_2 = (0, 0)
             if (pos_pick == 0):
-                pos_1 = [0, 0]
-                pos_2 = [4, 4]
+                pos_1 = (0, 0)
+                pos_2 = (4, 4)
             elif (pos_pick == 1):
-                pos_1 = [4, 0]
-                pos_2 = [0, 4]
+                pos_1 = (4, 0)
+                pos_2 = (0, 4)
             elif (pos_pick == 2):
-                pos_1 = [0, 4]
-                pos_2 = [4, 0]
+                pos_1 = (0, 4)
+                pos_2 = (4, 0)
             elif(pos_pick == 3):
-                pos_1 = [4, 4]
-                pos_2 = [0, 0]
+                pos_1 = (4, 4)
+                pos_2 = (0, 0)
 
-            pos1 = tuple(pos_1)
-            pos2 = tuple(pos_2)
-            dist = math.dist(pos1, pos2)
-            
+            manager.reset_map()
+            unit1 = manager.place_unit(pos_1, 0)
+            unit2 = manager.place_unit(pos_2, 1)
+
             #print("GENOME EVALUATION: ")
-
-            #dist_list = []
-            turns = 0
-            while (dist > 0.0 and turns < 2): #Turn Count limit may have to be modified
-                #print("unit 1 pos: " + str(pos1))
-                #print("unit 2 pos: " + str(pos2))
+            while (manager.game_result() == -1 and manager.turn_count < 2): #Turn Count limit may have to be modified
+                manager.find_movement(unit1)
+                
+                #print("unit 1 pos: " + str(unit1.pos))
+                #print("unit 2 pos: " + str(unit2.pos))
                 
                 input_list = []
-                input_list.append(pos1[0]/(dimensions[0]-1))
-                input_list.append(pos1[1]/(dimensions[1]-1))
+                #input_list.append(pos1[0]/(dimensions[0]-1))
+                #input_list.append(pos1[1]/(dimensions[1]-1))
 
-                input_list.append(pos2[0]/(dimensions[0]-1))
-                input_list.append(pos2[1]/(dimensions[1]-1))
-
-                #print("input pos: " + str(input_list))
+                input_list.append(unit2.pos[0]/(dimensions[0]-1))
+                input_list.append(unit2.pos[1]/(dimensions[1]-1))
 
                 input_tup = tuple(input_list)
-                format_in = [ '%.2f' % elem for elem in input_tup ]
+                #format_in = [ '%.2f' % elem for elem in input_tup ]
                 #print("input vector: " + str(format_in))
 
                 #use output dimensions
                 output = net.activate(input_tup)
                 
-                format_out = [ '%.2f' % elem for elem in output ]
+                #format_out = [ '%.2f' % elem for elem in output ]
                 #print("output vector: " + str(format_out))
                 
-                move = [round(output[0] * move_dist), round(output[1] * move_dist)]
+                move = [round(output[0] * unit1.max_move), round(output[1] * unit1.max_move)]
                 #move = (max(min(round(output[0] * unit1.max_move), dimensions[0]-1-unit1.pos[0]), -unit1.pos[0]),
                 #        max(min(round(output[1] * unit1.max_move), dimensions[1]-1-unit1.pos[1]), -unit1.pos[1]))
                 #print("move: " + str(move))
-                new_pos = list(np.add(pos1, move))
+                new_pos = list(np.add(unit1.pos, move))
                 if (new_pos[0] >= dimensions[0]):
                     new_pos[0] = dimensions[0]-1
                 if (new_pos[1] >= dimensions[1]):
@@ -80,14 +77,21 @@ def eval_genomes(genomes, config):
                     new_pos[0] = 0
                 if (new_pos[1] < 0):
                     new_pos[1] = 0
-                pos1 = tuple(new_pos)
+                manager.move_unit(unit1, tuple(new_pos))
 
-                #print("new_pos: "+ str(pos1))
-                turns += 1
-            dist_list.append(math.dist(pos1, pos2))
+                #print("new_pos: "+ str(unit1.pos))
+                manager.turn_count += 1
             
+            #if (math.dist(pos1, pos2) == 0):
+            #    wins += 1
+            if (manager.game_result() == 0):
+                wins +=1
+
+            #dist_list.append(math.dist(pos1, pos2))
             
-        #genome.fitness = (wins / games_run)
+        
+        #print("fitness: " + str(wins/games_run))
+        genome.fitness = (wins / games_run)
         
         #print("")
         #print("END GENOME EVALUATION: ")
@@ -97,7 +101,8 @@ def eval_genomes(genomes, config):
         #print("fitness: " + str(5.656854249492381 - (sum(dist_list)/games_run)))
         #print("")
         #print("")
-        genome.fitness = 5.656854249492381 - (sum(dist_list)/games_run)
+
+        #genome.fitness = 5.656854249492381 - (sum(dist_list)/games_run)
         
         
 def run(config_file):
@@ -116,7 +121,7 @@ def run(config_file):
     p.add_reporter(neat.Checkpointer(5))
 
     # Run for up to *generations* generations.
-    winner = p.run(eval_genomes, 300)
+    winner = p.run(eval_genomes, 100)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
