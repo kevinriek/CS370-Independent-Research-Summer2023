@@ -80,7 +80,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, hp=100, mmove=5, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, hp=100, mmove=3, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)

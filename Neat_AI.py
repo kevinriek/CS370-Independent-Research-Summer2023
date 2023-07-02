@@ -15,54 +15,56 @@ def eval_genomes(genomes, config):
         
         games_run = 20
         wins = 0
-        dimensions = (7,7)
+        dimensions = (8,8)
         manager = map_manager(dimensions)
 
         
         for i in range(games_run):
-            """
-            pos_pick = random.randint(0, 3)
+            pos_pick = random.randint(0, 1)
             pos_1 = (0, 0)
             pos_2 = (0, 0)
             if (pos_pick == 0):
-                pos_1 = (0, 0)
-                pos_2 = (6, 6)
+                #Team 0 units between 0 and 2 in the x, full length in the y
+                pos_1 = (random.randint(0, dimensions[1]-1), random.randint(0, 2))    
+                #Team 1 units between 5 and 7 in the x, one half of y      
+                pos_2 = (random.randint(0, (dimensions[1]//2)-1), random.randint(dimensions[0]-3, dimensions[0]-1))
+                pos_3 = (random.randint(dimensions[1]//2, dimensions[1]-1), random.randint(dimensions[0]-3, dimensions[0]-1))
             elif (pos_pick == 1):
-                pos_1 = (6, 0)
-                pos_2 = (0, 6)
-            elif (pos_pick == 2):
-                pos_1 = (0, 6)
-                pos_2 = (6, 0)
-            elif(pos_pick == 3):
-                pos_1 = (6, 6)
-                pos_2 = (0, 0)
-            """
-            pos_1 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1))
-            pos_2 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1))
-            while (pos_1 == pos_2):
-                pos_2 = (random.randint(0, dimensions[0]-1), random.randint(0, dimensions[1]-1)) 
-
+                #Team 0 units between 5 and 7 in the x, full length in the y
+                pos_1 = (random.randint(0, dimensions[1]-1), random.randint(dimensions[0]-3, dimensions[0]-1))
+                #Team 1 units between 0 and 2 in the x, one half of y
+                pos_2 = (random.randint(0, (dimensions[1]//2)-1), random.randint(0, 2))  
+                pos_3 = (random.randint(dimensions[1]//2, dimensions[1]-1), random.randint(0, 2))  
+                
             manager.reset_map()
             unit1 = manager.place_unit(pos_1, 0)
             unit2 = manager.place_unit(pos_2, 1)
+            unit3 = manager.place_unit(pos_3, 1)
 
             #print("GENOME EVALUATION: ")
-            while (manager.game_result() == -1 and manager.turn_count < 5): #Turn Count limit may have to be modified
+            while (manager.game_result() == -1 and manager.turn_count < 7): #Turn Count limit may have to be modified
                 move_list = manager.find_movement(unit1)
                 
-                input_list = list(np.zeros((3)))
+                input_list = list(np.zeros((6)))
 
                 win_move = (0, 0)
-                win_weight = 0.0
+                win_weight = -float("inf")
                 for move in move_list:
+                    #Cannot stay in the same spot: avoid getting trapped in a 'hole'
+                    if (move.pos == unit1.pos):
+                        pass
                     move_pos = move.pos
                     if move.is_attack:      #move is of Tile Class
                         move_pos = move.move_parent.pos
                         manager.sim_combat(unit1, move.unit_ref) 
                     
-                    input_list[0] = (unit2.pos[0] - move_pos[0])/(dimensions[0]-1)
-                    input_list[1] = (unit2.pos[1] - move_pos[1])/(dimensions[1]-1)
+                    input_list[0] = (unit2.pos[0] - move.pos[0])/(dimensions[0]-1)  #maybe use move_pos later
+                    input_list[1] = (unit2.pos[1] - move.pos[1])/(dimensions[1]-1)  #maybe use move_pos later
                     input_list[2] = (unit2.temp_hp / 100.0) #Current max hp is 100 
+                    
+                    input_list[3] = (unit3.pos[0] - move.pos[0])/(dimensions[0]-1)  #maybe use move_pos later
+                    input_list[4] = (unit3.pos[1] - move.pos[1])/(dimensions[1]-1)  #maybe use move_pos later
+                    input_list[5] = (unit3.temp_hp / 100.0) #Current max hp is 100 
 
                     #VERY IMPORTANT, must be executed after SIMULATED combat!!!
                     if (move.is_attack):
@@ -79,7 +81,7 @@ def eval_genomes(genomes, config):
 
                     #print(len(output[0]))
                     #print(len(win_weight))
-                    if (output[0] > win_weight):
+                    if (output[0] >= win_weight):
                         win_move = move.pos
                         win_weight = output[0]
 
@@ -87,7 +89,7 @@ def eval_genomes(genomes, config):
                 #print("unit 2 pos: " + str(unit2.pos))
                 
                 #print("move: " + str(move))
-                manager.move_unit(unit1, tuple(win_move))
+                manager.move_unit(unit1, win_move)
 
                 #print("new_pos: "+ str(unit1.pos))
                 manager.turn_count += 1
