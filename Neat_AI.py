@@ -9,6 +9,7 @@ import random
 import GameManager
 from GameManager import map_manager, Tile, Unit, Team
 
+#This is the Eval Func branch
 def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
