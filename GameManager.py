@@ -32,6 +32,7 @@ class map_manager:
         return Map
 
     def reset_map(self):
+        self.Units = []
         for i in range(self.Map.shape[0]):
             for j in range(self.Map.shape[1]):
                 self.Map[i, j].unit_ref = None
@@ -117,6 +118,7 @@ class map_manager:
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
             
+            target_unit = tile.unit_ref
             self.combat(unit, tile.unit_ref)
         else:
             move_tile = tile
@@ -127,7 +129,7 @@ class map_manager:
         
     def sim_combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 100
+        def_dmg = (att_unit.Att / def_unit.Def) * 25
 
         def_unit.temp_hp = def_unit.hp - def_dmg
 
@@ -137,17 +139,18 @@ class map_manager:
 
     def combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 100
+        def_dmg = (att_unit.Att / def_unit.Def) * 40
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
-        
+        def_unit.temp_hp = def_unit.hp
+
         if (def_unit.hp <= 0):
-            self.Units.remove(def_unit)
+            #self.Units.remove(def_unit)   #don't remove from all units, this messes up inputs
             self.Teams[def_unit.Team].units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
-            del def_unit
+            #del def_unit
     
-    """
+
     def Turn(self):
         if (self.curr_team == 0):
             self.curr_team = 1
@@ -155,10 +158,10 @@ class map_manager:
             self.curr_team = 0
             self.turn_count += 1
             
-        for unit in self.Units:
-            if (unit.Team == self.curr_team):
-                unit.curr_move = unit.max_move
-    """
+        #for unit in self.Units:
+        #    if (unit.Team == self.curr_team):
+        #        unit.curr_move = unit.max_move
+
     
     #returns -1 if the game is not over, else returns the number of the winning team
     def game_result(self):
@@ -217,5 +220,6 @@ class Unit:
         
     def __str__(self):
         string = "Unit:\n\tpos: {0}\n\tcurr_move: {1}\n\thp: {2}\n".format(self.pos, self.curr_move, self.hp) 
+        string +="\ttemp_hp: {0}\n".format(self.temp_hp)
         string += "\tmax_move: {0}\n\tAtt: {1}\n\tDef: {2}\n\tTeam: {3}\n".format(self.max_move, self.Att, self.Def, self.Team)
         return string
