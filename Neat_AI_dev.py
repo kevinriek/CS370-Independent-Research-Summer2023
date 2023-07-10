@@ -57,7 +57,7 @@ def eval_genomes(genomes, config):
             while (manager.game_result() == -1 and manager.turn_count < 7): #Turn Count limit may have to be modified
                 for unit in ai_units:
                     move_list = manager.find_movement(unit)
-                    input_list = list(np.zeros((18)))
+                    input_list = list(np.zeros((16)))
 
                     #CHANGE GAME MANAGER ATTACKING AND DEFENDING DAMAGE!!!!
 
@@ -85,12 +85,12 @@ def eval_genomes(genomes, config):
 
                         input_tup = tuple(input_list)
                         format_in = [ '%.2f' % elem for elem in input_tup ]
-                        #print("input vector: " + str(format_in))
+                        print("input vector: " + str(format_in))
                         
                         output = net.activate(input_tup)
                         
                         format_out = [ '%.2f' % elem for elem in output ]
-                        #print("output vector: " + str(format_out))
+                        print("output vector: " + str(format_out))
 
                         #print(len(output[0]))
                         #print(len(win_weight))

@@ -62,6 +62,9 @@ class map_manager:
             curr_tile = prio_queue.get()
             curr_pos = curr_tile.pos
             curr_tile.visited = True
+            #Should prevent movement through opponents
+            if (Map[curr_tile.pos].is_attack):
+                pass
             for i in range(4):
                 new_pos = tuple(np.add(curr_pos, self.directions[i]))
                 if (new_pos[0] < 0 or new_pos[0] >= self.Map.shape[0] or
@@ -81,7 +84,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, hp=100, mmove=3, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, hp=100, mmove=4, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -145,6 +148,9 @@ class map_manager:
         def_unit.temp_hp = def_unit.hp
 
         if (def_unit.hp <= 0):
+            def_unit.hp = 0
+            def_unit.temp_hp = def_unit.hp
+            
             #self.Units.remove(def_unit)   #don't remove from all units, this messes up inputs
             self.Teams[def_unit.Team].units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
@@ -165,6 +171,10 @@ class map_manager:
     
     #returns -1 if the game is not over, else returns the number of the winning team
     def game_result(self):
+        # if len(self.Teams[0].units) > len(self.Teams[1].units):
+        #     return 0
+        # if len(self.Teams[1].units) > len(self.Teams[0].units):
+        #     return 1
         if len(self.Teams[0].units) == 0:
             return 1
         if len(self.Teams[1].units) == 0:
