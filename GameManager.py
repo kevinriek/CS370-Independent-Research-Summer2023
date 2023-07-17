@@ -32,6 +32,7 @@ class map_manager:
         return Map
 
     def reset_map(self):
+        self.Units = []
         for i in range(self.Map.shape[0]):
             for j in range(self.Map.shape[1]):
                 self.Map[i, j].unit_ref = None
@@ -43,8 +44,11 @@ class map_manager:
 
     def find_movement(self, unit):
         assert(unit is not None)
-        unit.curr_move = unit.max_move
+
+        self.clear_movement()
+        #unit.curr_move = unit.max_move
         self.dijstrkas(unit)
+        return self.visited_tiles
     
     def dijstrkas(self, unit):
         prio_queue = queue.PriorityQueue()
@@ -58,6 +62,9 @@ class map_manager:
             curr_tile = prio_queue.get()
             curr_pos = curr_tile.pos
             curr_tile.visited = True
+            #Should prevent movement through opponents
+            if (Map[curr_tile.pos].is_attack):
+                pass
             for i in range(4):
                 new_pos = tuple(np.add(curr_pos, self.directions[i]))
                 if (new_pos[0] < 0 or new_pos[0] >= self.Map.shape[0] or
@@ -77,7 +84,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
-        new_unit = Unit(pos=pos, hp=100, mmove=10, Att=20, Def=10, Team=team)
+        new_unit = Unit(pos=pos, hp=100, mmove=4, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -102,10 +109,10 @@ class map_manager:
         #move_pos = tuple(np.add(unit.pos, dir))
         move_pos = pos
         tile = self.Map[move_pos]
-        try:
+        """        try:                 #CURRENTLY AM NOT SETTING THE VISITED STAT SO THIS DOES NOT WORK
             assert(tile.visited)
         except AssertionError:
-            print("Tile {0} not reachable by unit".format(move_pos))
+            print("Tile {0} not reachable by unit".format(move_pos))"""
 
         if(tile.is_attack == True):
             move_tile = tile.move_parent 
@@ -114,6 +121,7 @@ class map_manager:
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
             
+            target_unit = tile.unit_ref
             self.combat(unit, tile.unit_ref)
         else:
             move_tile = tile
@@ -121,23 +129,34 @@ class map_manager:
             unit.pos = move_tile.pos
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
-
-
-        self.clear_movement()
         
+    def sim_combat(self, att_unit, def_unit):
+        #att_dmg = (def_unit.Def / att_unit.Att) * 20
+        def_dmg = (att_unit.Att / def_unit.Def) * 25
+
+        def_unit.temp_hp = def_unit.hp - def_dmg
+
+    def reset_temp_hp(self):
+        for unit in self.Units:
+            unit.temp_hp = unit.hp
+
     def combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 100
+        def_dmg = (att_unit.Att / def_unit.Def) * 40
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
-        
+        def_unit.temp_hp = def_unit.hp
+
         if (def_unit.hp <= 0):
-            self.Units.remove(def_unit)
+            def_unit.hp = 0
+            def_unit.temp_hp = def_unit.hp
+            
+            #self.Units.remove(def_unit)   #don't remove from all units, this messes up inputs
             self.Teams[def_unit.Team].units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
-            del def_unit
+            #del def_unit
     
-    """
+
     def Turn(self):
         if (self.curr_team == 0):
             self.curr_team = 1
@@ -145,13 +164,17 @@ class map_manager:
             self.curr_team = 0
             self.turn_count += 1
             
-        for unit in self.Units:
-            if (unit.Team == self.curr_team):
-                unit.curr_move = unit.max_move
-    """
+        #for unit in self.Units:
+        #    if (unit.Team == self.curr_team):
+        #        unit.curr_move = unit.max_move
+
     
     #returns -1 if the game is not over, else returns the number of the winning team
     def game_result(self):
+        # if len(self.Teams[0].units) > len(self.Teams[1].units):
+        #     return 0
+        # if len(self.Teams[1].units) > len(self.Teams[0].units):
+        #     return 1
         if len(self.Teams[0].units) == 0:
             return 1
         if len(self.Teams[1].units) == 0:
@@ -196,6 +219,7 @@ class Unit:
     def __init__(self, pos, hp, mmove, Att, Def, Team):
         self.pos = pos
         self.hp = hp
+        self.temp_hp = hp
         
         self.max_move = mmove
         self.curr_move = mmove
@@ -206,5 +230,6 @@ class Unit:
         
     def __str__(self):
         string = "Unit:\n\tpos: {0}\n\tcurr_move: {1}\n\thp: {2}\n".format(self.pos, self.curr_move, self.hp) 
+        string +="\ttemp_hp: {0}\n".format(self.temp_hp)
         string += "\tmax_move: {0}\n\tAtt: {1}\n\tDef: {2}\n\tTeam: {3}\n".format(self.max_move, self.Att, self.Def, self.Team)
         return string
