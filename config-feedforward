@@ -9,9 +9,9 @@ reset_on_extinction   = False
 
 [DefaultGenome]
 # node activation options
-activation_default      = sigmoid
+activation_default      = gauss
 activation_mutate_rate  = 0.1
-activation_options      = sigmoid tanh abs clamped cube gauss hat identity relu inv sin softplus
+activation_options      = gauss
 
 # node aggregation options
 aggregation_default     = sum

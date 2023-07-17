@@ -70,7 +70,7 @@ def eval_genomes(genomes, config):
             op_units = []
             net = None
             #print("GENOME EVALUATION: ")
-            while (manager.game_result() == -1 and manager.turn_count < 5): #Turn Count limit may have to be modified
+            while (manager.game_result() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
                 if manager.curr_team == 0:
                     my_units = units0
                     op_units = units1
@@ -198,7 +198,7 @@ def run(config_file):
     #p.add_reporter(neat.Checkpointer(5))
 
     # Run for up to *generations* generations.
-    winner = p.run(eval_genomes, 15)
+    winner = p.run(eval_genomes, 50)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
