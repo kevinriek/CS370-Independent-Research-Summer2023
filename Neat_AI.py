@@ -6,6 +6,7 @@ import neat
 import visualize
 import random
 import matplotlib.pyplot as plt
+import pickle
 
 import AI_modules
 from AI_modules import no_ai, rand_ai, script_ai, neat_ai, script_performance
@@ -106,6 +107,7 @@ def run(config_file):
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_file)
+    run_name = 'Relative-Position-Eval-Func'
 
     # Create the population, which is the top-level object for a NEAT run.
     p = neat.Population(config)
@@ -120,11 +122,16 @@ def run(config_file):
     p.add_reporter(script)
 
     #THIS ENABLES CHECKPOINTS
-    p.add_reporter(neat.Checkpointer(generation_interval=5, filename_prefix='./checkpoints/neat-checkpoint-'))
+
+    if not os.path.exists('./checkpoints/{}'.format(run_name)):
+        os.makedirs('./checkpoints/{}'.format(run_name))
+    checkpoint = neat.Checkpointer(generation_interval=5, filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
+    p.add_reporter(checkpoint)
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    winner = p.run(eval_genomes, 10)
+    generations = 1
+    winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
@@ -133,19 +140,24 @@ def run(config_file):
     print('\nOutput:')
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
-    plot_stats(stats, 'Relative Position Eval Func')
-    plot_script_performance(script, 'Relative Position Eval Func')
-
-    #visualize.plot_stats(stats, ylog=False, view=True)
-    #visualize.plot_species(stats, view=True)
-
-    #can use restore_checkpoint to resume simulation
-    #p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-4')
+    plot_stats(stats, run_name)
+    plot_script_performance(script, run_name)
     
-    #p.run(eval_genomes, 10)
+    winner.write_config('./best/{}-config'.format(run_name), config)
+    with open('./best/{}-genome'.format(run_name), "wb") as f:
+        pickle.dump(winner, f)
+        f.close()
     
     return winner_net, stats
 
+def load_net(config_path, path):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+    # Unpickle saved winner
+    with open(path, "rb") as f:
+        genome = pickle.load(f)
+
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    return net
 
 def plot_stats(stats_reporter, name):
     plt.plot(stats_reporter.get_fitness_stat(max))
