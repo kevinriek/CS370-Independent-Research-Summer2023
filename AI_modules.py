@@ -1,6 +1,8 @@
 import math
 import random
 import numpy as np
+import neat
+from GameManager import map_manager
 
 def no_ai(map_manager, unit):
     return unit.pos
@@ -134,3 +136,64 @@ def script_ai(map_manager, unit):
         unit.pos = saved_pos    #revert back to saved pos
     
     return win_move    #Tuple
+
+
+def script_performance(games, best_genome, config, dimensions):
+    my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
+
+    games_run = games
+    wins = 0
+    dimensions = (8,8)
+    manager = map_manager(dimensions)
+
+    for i in range(games_run):
+        pos_pick = random.randint(0, 1)
+        pos_list = []
+        for i in range(4):
+            pos_list.append((i+2, 0))
+        for i in range(4):
+            pos_list.append((i+2, dimensions[1]-1))
+
+        manager.reset_map()
+        units0 = []
+        units1 = []
+        if pos_pick == 0:
+            for i in range(4):
+                units0.append(manager.place_unit(pos_list[i], 0))
+            for i in range(4, 8):
+                units1.append(manager.place_unit(pos_list[i], 1))
+        else:
+            for i in range(4):
+                units1.append(manager.place_unit(pos_list[i], 1))
+            for i in range(4, 8):
+                units0.append(manager.place_unit(pos_list[i], 0))
+
+        my_units = []
+        op_units = []
+        #print("GENOME EVALUATION: ")
+        while (manager.game_result() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
+
+            for unit in manager.Teams[manager.curr_team].units:
+                win_move = (0, 0)
+                if manager.curr_team == 0:
+                    win_move = neat_ai(manager, unit, my_net)
+                elif manager.curr_team == 1:
+                    win_move = script_ai(manager, unit)
+                manager.move_unit(unit, win_move)
+                #print(manager)
+
+            
+            #Next Turn
+            manager.Turn()
+        
+        #if (math.dist(pos1, pos2) == 0):
+        #    wins += 1
+        if (manager.game_result() == 0):
+            #print(manager)
+            #print("{}, {}, {}, {}, {}, {}".format(pos_1, pos_2, pos_3, pos_4, pos_5, pos_6))
+            wins +=1
+
+        #dist_list.append(math.dist(pos1, pos2))
+
+    winrate = (wins / games_run)
+    return winrate

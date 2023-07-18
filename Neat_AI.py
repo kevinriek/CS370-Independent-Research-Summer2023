@@ -8,7 +8,7 @@ import random
 import matplotlib.pyplot as plt
 
 import AI_modules
-from AI_modules import no_ai, rand_ai, script_ai, neat_ai
+from AI_modules import no_ai, rand_ai, script_ai, neat_ai, script_performance
 
 import GameManager
 from GameManager import map_manager, Tile, Unit, Team
@@ -116,13 +116,15 @@ def run(config_file):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
+    script = vs_script_reporter(20, (8, 8))
+    p.add_reporter(script)
 
     #THIS ENABLES CHECKPOINTS
     p.add_reporter(neat.Checkpointer(generation_interval=5, filename_prefix='./checkpoints/neat-checkpoint-'))
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    winner = p.run(eval_genomes, 20)
+    winner = p.run(eval_genomes, 10)
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
@@ -132,7 +134,7 @@ def run(config_file):
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
     plot_stats(stats, 'Relative Position Eval Func')
-
+    plot_script_performance(script, 'Relative Position Eval Func')
 
     #visualize.plot_stats(stats, ylog=False, view=True)
     #visualize.plot_species(stats, view=True)
@@ -143,6 +145,7 @@ def run(config_file):
     #p.run(eval_genomes, 10)
     
     return winner_net, stats
+
 
 def plot_stats(stats_reporter, name):
     plt.plot(stats_reporter.get_fitness_stat(max))
@@ -156,3 +159,23 @@ def plot_stats(stats_reporter, name):
     plt.xlabel("Generation")
     plt.ylabel("Mean Fitness")
     plt.show()
+
+def plot_script_performance(script_reporter, name):
+    plt.plot(script_reporter.winrate_list)
+    plt.title("{} Best Genome Winrate vs. Generation".format(name))
+    plt.xlabel("Generation")
+    plt.ylabel("Best Genome Winrate vs. Script")
+    plt.show()
+
+class vs_script_reporter(neat.reporting.BaseReporter):
+    def __init__(self, games_run, dimensions):
+        self.winrate_list = []
+        self.dimensions = dimensions
+        self.games = games_run
+
+    def post_evaluate(self, config, population, species, best_genome):
+        gen_rate = script_performance(self.games, best_genome, config, self.dimensions)
+        self.winrate_list.append(gen_rate)
+        print("This generation's best genome's winrate vs. script: {}".format(round(gen_rate, 2)))
+              
+
