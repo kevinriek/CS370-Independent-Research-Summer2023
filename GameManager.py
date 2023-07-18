@@ -62,15 +62,13 @@ class map_manager:
             curr_tile = prio_queue.get()
             curr_pos = curr_tile.pos
             curr_tile.visited = True
-            #Should prevent movement through opponents
-            if (Map[curr_tile.pos].is_attack):
-                pass
+            
             for i in range(4):
                 new_pos = tuple(np.add(curr_pos, self.directions[i]))
                 if (new_pos[0] < 0 or new_pos[0] >= self.Map.shape[0] or
                     new_pos[1] < 0 or new_pos[1] >= self.Map.shape[1] or
                     (Map[new_pos].unit_ref is not None and Map[new_pos].unit_ref.Team == unit.Team) or
-                    new_pos == unit.pos or Map[new_pos].visited):
+                    Map[new_pos].visited): #or new_pos == unit.pos 
                     pass
                 else:
                     new_cost = Map[new_pos].tile_cost + curr_tile.move_cost
@@ -79,8 +77,11 @@ class map_manager:
                         Map[new_pos].move_parent = curr_tile
                         if (Map[new_pos].unit_ref is not None):
                             Map[new_pos].is_attack = True
+                        else:
+                            #Should prevent movement through opponents
+                            prio_queue.put(Map[new_pos])
                         self.visited_tiles.append(Map[new_pos])
-                        prio_queue.put(Map[new_pos])
+                        
                     
         
     def place_unit(self, pos, team):
@@ -107,6 +108,9 @@ class map_manager:
     
     def move_unit(self, unit, pos):
         #move_pos = tuple(np.add(unit.pos, dir))
+        if pos == unit.pos:
+            return
+        
         move_pos = pos
         tile = self.Map[move_pos]
         """        try:                 #CURRENTLY AM NOT SETTING THE VISITED STAT SO THIS DOES NOT WORK
