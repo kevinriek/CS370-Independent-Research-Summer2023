@@ -2,15 +2,16 @@
 
 [NEAT]
 fitness_criterion     = max
-fitness_threshold     = 1.0    
+#Unreachable right now
+fitness_threshold     = 5.0   
 pop_size              = 150
 reset_on_extinction   = False
 
 [DefaultGenome]
 # node activation options
-activation_default      = gauss
+activation_default      = sigmoid
 activation_mutate_rate  = 0.1
-activation_options      = gauss
+activation_options      = sigmoid
 
 # node aggregation options
 aggregation_default     = sum
@@ -48,7 +49,7 @@ node_delete_prob        = 0.2
 
 # network parameters
 num_hidden              = 1
-num_inputs              = 22
+num_inputs              = 30
 num_outputs             = 1
 
 # node response options
@@ -70,7 +71,7 @@ weight_mutate_rate      = 0.8
 weight_replace_rate     = 0.1
 
 [DefaultSpeciesSet]
-compatibility_threshold = 3.50
+compatibility_threshold = 3.0
 
 [DefaultStagnation]
 species_fitness_func = max

@@ -24,7 +24,7 @@ def neat_ai(map_manager, unit, net):
         op_units = map_manager.Teams[0].units
     
     move_list = map_manager.find_movement(unit)
-    input_list = list(np.zeros((22)))
+    input_list = list(np.zeros((30)))
 
     win_move = (0, 0)
     win_weight = -float("inf")
@@ -41,24 +41,23 @@ def neat_ai(map_manager, unit, net):
 
         index = 0
         #This unit's input is always first
-        input_list[index] = (unit.temp_hp / 100.0)
-        index += 1
+        # input_list[index] = (unit.temp_hp / 100.0)
+        # index += 1
 
         #Allied pieces input
         for i in range(len(my_units)):
             c_unit = my_units[i]
-            if c_unit == unit:  #Input for selected unit entered at beginning
-                continue
-            input_list[index] = (c_unit.pos[0] - move.pos[0])/(map_manager.Map.shape[0]-1)
-            input_list[index+1] = (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
+            input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
+            input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
             index += 3
 
         #Opponent pieces input
         for i in range(len(op_units)):
+
             c_unit = op_units[i]
-            input_list[index] = (c_unit.pos[0] - move.pos[0])/(map_manager.Map.shape[0]-1)
-            input_list[index+1] = (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
+            input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
+            input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
             index += 3
 
@@ -143,57 +142,29 @@ def script_performance(games, best_genome, config, dimensions):
 
     games_run = games
     wins = 0
-    dimensions = (8,8)
+    dimensions = (7,7)
+    units_per_side = 5
     manager = map_manager(dimensions)
 
     for i in range(games_run):
-        pos_pick = random.randint(0, 1)
-        pos_list = []
-        for i in range(4):
-            pos_list.append((i+2, 0))
-        for i in range(4):
-            pos_list.append((i+2, dimensions[1]-1))
+        #also resets map
+        manager.setup_even(dimensions, units_per_side)
 
-        manager.reset_map()
-        units0 = []
-        units1 = []
-        if pos_pick == 0:
-            for i in range(4):
-                units0.append(manager.place_unit(pos_list[i], 0))
-            for i in range(4, 8):
-                units1.append(manager.place_unit(pos_list[i], 1))
-        else:
-            for i in range(4):
-                units1.append(manager.place_unit(pos_list[i], 1))
-            for i in range(4, 8):
-                units0.append(manager.place_unit(pos_list[i], 0))
+        while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
 
-        my_units = []
-        op_units = []
-        #print("GENOME EVALUATION: ")
-        while (manager.game_result() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
-
-            for unit in manager.Teams[manager.curr_team].units:
+            for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
                     win_move = neat_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     win_move = script_ai(manager, unit)
                 manager.move_unit(unit, win_move)
-                #print(manager)
 
-            
             #Next Turn
             manager.Turn()
         
-        #if (math.dist(pos1, pos2) == 0):
-        #    wins += 1
-        if (manager.game_result() == 0):
-            #print(manager)
-            #print("{}, {}, {}, {}, {}, {}".format(pos_1, pos_2, pos_3, pos_4, pos_5, pos_6))
+        if (manager.game_joever() == 0):
             wins +=1
-
-        #dist_list.append(math.dist(pos1, pos2))
 
     winrate = (wins / games_run)
     return winrate

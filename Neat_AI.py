@@ -20,94 +20,60 @@ Population = None
 def eval_genomes(genomes, config):
     
     #Self-play
-    # #Getting best genome
-    # global Population
-    # best_genome = Population.best_genome
-    # if best_genome is None:
-    #     print('defaulting to this genome')
-    #     best_id, best_genome = genomes[0]
+    #Getting best genome
+    global Population
+    best_genome = Population.best_genome
+    #best_genome = Population.reporters[1].best_genome
+    if best_genome is None:
+        print('defaulting to this genome')
+        best_id, best_genome = genomes[0]
+
+    #Population.reporters[1].best_genome    #stats
     
     for genome_id, genome in genomes:
         my_net = neat.nn.FeedForwardNetwork.create(genome, config)
-        #op_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
+        op_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
 
-        games_run = 3
+        games_run = 10
         wins = 0
-        dimensions = (8,8)
+        dimensions = (7,7)
+        units_per_side = 5
         manager = map_manager(dimensions)
 
+        sum = 0.0
+
         for i in range(games_run):
-            pos_pick = random.randint(0, 1)
-            pos_list = []
-            for i in range(4):
-                pos_list.append((i+2, 0))
-            for i in range(4):
-                pos_list.append((i+2, dimensions[1]-1))
+            #also resets map
+            manager.setup_even(dimensions, units_per_side)
 
-            manager.reset_map()
-            units0 = []
-            units1 = []
-            if pos_pick == 0:
-                for i in range(4):
-                    units0.append(manager.place_unit(pos_list[i], 0))
-                for i in range(4, 8):
-                    units1.append(manager.place_unit(pos_list[i], 1))
-            else:
-                for i in range(4):
-                    units1.append(manager.place_unit(pos_list[i], 1))
-                for i in range(4, 8):
-                    units0.append(manager.place_unit(pos_list[i], 0))
-
-            my_units = []
-            op_units = []
-            #print("GENOME EVALUATION: ")
-            while (manager.game_result() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
-
-                for unit in manager.Teams[manager.curr_team].units:
+            while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
+                for unit in manager.Teams[manager.curr_team].live_units:
                     win_move = (0, 0)
                     if manager.curr_team == 0:
                         win_move = neat_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
                         win_move = script_ai(manager, unit)
                     manager.move_unit(unit, win_move)
-                    #print(manager)
-
-                #print("new_pos: "+ str(unit1.pos))
-                
-                #Next Turn
-                manager.Turn()
-            
-            #if (math.dist(pos1, pos2) == 0):
-            #    wins += 1
-            if (manager.game_result() == 0):
                 #print(manager)
-                #print("{}, {}, {}, {}, {}, {}".format(pos_1, pos_2, pos_3, pos_4, pos_5, pos_6))
-                wins +=1
+                manager.Turn()
+                
+            sum += manager.game_feedback()
+                # if (manager.game_joever() == 0):
+                #     wins +=1
+                # elif (manager.game_joever() == 1):
+                #     wins -= 1
 
-            #dist_list.append(math.dist(pos1, pos2))
-            
-        
-        #print("fitness: " + str(wins/games_run))
-        genome.fitness = (wins / games_run)
-        
-        #print("")
-        #print("END GENOME EVALUATION: ")
-
-        #print("end unit 1 pos: " + str(pos1))
-        #print("end unit 2 pos: " + str(pos2))
-        #print("fitness: " + str(5.656854249492381 - (sum(dist_list)/games_run)))
-        #print("")
-        #print("")
-
-        #genome.fitness = 5.656854249492381 - (sum(dist_list)/games_run)
-        
+        #print('wins: ' + str(wins))
+        #manager.game_feedback()
+        feedback = (sum / games_run)
+        genome.fitness = feedback
         
 def run(config_file):
     # Load configuration.
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_file)
-    run_name = 'Relative-Position-Eval-Func'
+    run_name = 'Global-Position-Eval-Func_vsScript_difference_2layer'
 
     # Create the population, which is the top-level object for a NEAT run.
     p = neat.Population(config)
@@ -118,7 +84,7 @@ def run(config_file):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    script = vs_script_reporter(20, (8, 8))
+    script = vs_script_reporter(25, (7, 7))     #25 games, 7x7
     p.add_reporter(script)
 
     #THIS ENABLES CHECKPOINTS
@@ -130,7 +96,7 @@ def run(config_file):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 1
+    generations = 100
     winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.
