@@ -176,10 +176,29 @@ class map_manager:
         #    if (unit.Team == self.curr_team):
         #        unit.curr_move = unit.max_move
 
-    def setup_rand(self, dimensions):
-        pass
+    def setup_rand(self, unit_count):
+        dimensions = self.Map.shape
+        self.reset_map()
+        
+        pos_ls = []
+        for i in range(unit_count):
+            pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
+                            round(random.uniform(0, dimensions[1]/7))))
+        for i in range(unit_count):
+            pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
+                            round(random.uniform(dimensions[1]-(1+dimensions[1]/7), dimensions[1]-1))))
 
-    def setup_even(self, dimensions, unit_count):
+        team1 = 0
+        team2 = 1
+
+        for i in range(unit_count):
+            self.place_unit(pos_ls[i], team1)
+        for i in range(unit_count):
+            self.place_unit(pos_ls[unit_count+i], team2)   
+        
+
+    def setup_even(self, unit_count):
+        dimensions = self.Map.shape
         pos_pick = random.randint(0, 1)
         pos_list = []
 
@@ -211,10 +230,10 @@ class map_manager:
     #returns -1 if the game is not over, else returns the number of the winning team
     def game_feedback(self):
         #No units
-        # if len(self.Teams[0].live_units) == 0:
-        #     return 1
-        # if len(self.Teams[1].live_units) == 0:
-        #     return 0
+        if len(self.Teams[0].live_units) == 0:
+            return 1
+        if len(self.Teams[1].live_units) == 0:
+            return 0
 
         #More units
         # if len(self.Teams[0].live_units) > len(self.Teams[1].live_units):
@@ -224,7 +243,7 @@ class map_manager:
         # return -1
 
         #Units difference
-        return len(self.Teams[0].live_units) - len(self.Teams[1].live_units)
+        #return len(self.Teams[0].live_units) - len(self.Teams[1].live_units)
     
 class Tile:
     def __init__(self, pos, unit):

@@ -1,11 +1,11 @@
 #--- parameters for the Project experiment ---#
 
 [NEAT]
-fitness_criterion     = max
-#Unreachable right now
-fitness_threshold     = 5.0   
-pop_size              = 150
-reset_on_extinction   = False
+fitness_criterion      = max
+fitness_threshold      = 1.0   
+no_fitness_termination = True
+pop_size               = 50
+reset_on_extinction    = True
 
 [DefaultGenome]
 # node activation options
@@ -49,7 +49,7 @@ node_delete_prob        = 0.2
 
 # network parameters
 num_hidden              = 1
-num_inputs              = 30
+num_inputs              = 28
 num_outputs             = 1
 
 # node response options
@@ -71,11 +71,11 @@ weight_mutate_rate      = 0.8
 weight_replace_rate     = 0.1
 
 [DefaultSpeciesSet]
-compatibility_threshold = 3.0
+compatibility_threshold = 3.5
 
 [DefaultStagnation]
 species_fitness_func = max
-max_stagnation       = 100
+max_stagnation       = 10
 species_elitism      = 3
 
 [DefaultReproduction]

@@ -27,24 +27,22 @@ def eval_genomes(genomes, config):
     if best_genome is None:
         print('defaulting to this genome')
         best_id, best_genome = genomes[0]
-
-    #Population.reporters[1].best_genome    #stats
+    op_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
     
+    games_run = 10
+    dimensions = (7,7)
+    units_per_side = 5
+    manager = map_manager(dimensions)
+
     for genome_id, genome in genomes:
-        my_net = neat.nn.FeedForwardNetwork.create(genome, config)
-        op_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
-
-        games_run = 10
         wins = 0
-        dimensions = (7,7)
-        units_per_side = 5
-        manager = map_manager(dimensions)
-
-        sum = 0.0
-
-        for i in range(games_run):
+        my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
+        
+        #sum = 0.0
+        for j in range(games_run):
             #also resets map
-            manager.setup_even(dimensions, units_per_side)
+            #Rand setup with pick i, also resets map
+            manager.setup_rand(units_per_side)
 
             while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
                 for unit in manager.Teams[manager.curr_team].live_units:
@@ -52,28 +50,27 @@ def eval_genomes(genomes, config):
                     if manager.curr_team == 0:
                         win_move = neat_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
-                        win_move = script_ai(manager, unit)
+                        win_move = neat_ai(manager, unit, op_net)
                     manager.move_unit(unit, win_move)
                 #print(manager)
                 manager.Turn()
                 
-            sum += manager.game_feedback()
-                # if (manager.game_joever() == 0):
-                #     wins +=1
-                # elif (manager.game_joever() == 1):
-                #     wins -= 1
+            #sum += manager.game_feedback()
+            if (manager.game_feedback() == 0):
+                wins +=1
+            # elif (manager.game_joever() == 1):
+            #     wins -= 1
 
         #print('wins: ' + str(wins))
         #manager.game_feedback()
-        feedback = (sum / games_run)
-        genome.fitness = feedback
+        genome.fitness = (wins / games_run)
         
-def run(config_file):
+def run(config_file, run_name):
     # Load configuration.
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_file)
-    run_name = 'Global-Position-Eval-Func_vsScript_difference_2layer'
+     = 'Relative-Position-Eval-Func_selfPlay'
 
     # Create the population, which is the top-level object for a NEAT run.
     p = neat.Population(config)
@@ -84,7 +81,7 @@ def run(config_file):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    script = vs_script_reporter(25, (7, 7))     #25 games, 7x7
+    script = vs_script_reporter(10, (10, 10))     #25 games, 7x7
     p.add_reporter(script)
 
     #THIS ENABLES CHECKPOINTS
@@ -148,11 +145,11 @@ def plot_script_performance(script_reporter, name):
 class vs_script_reporter(neat.reporting.BaseReporter):
     def __init__(self, games_run, dimensions):
         self.winrate_list = []
-        self.dimensions = dimensions
         self.games = games_run
+        self.manager = map_manager(dimensions)
 
     def post_evaluate(self, config, population, species, best_genome):
-        gen_rate = script_performance(self.games, best_genome, config, self.dimensions)
+        gen_rate = script_performance(self.manager, self.games, best_genome, config)
         self.winrate_list.append(gen_rate)
         print("This generation's best genome's winrate vs. script: {}".format(round(gen_rate, 2)))
               

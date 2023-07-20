@@ -24,7 +24,7 @@ def neat_ai(map_manager, unit, net):
         op_units = map_manager.Teams[0].units
     
     move_list = map_manager.find_movement(unit)
-    input_list = list(np.zeros((30)))
+    input_list = list(np.zeros((28)))
 
     win_move = (0, 0)
     win_weight = -float("inf")
@@ -41,14 +41,19 @@ def neat_ai(map_manager, unit, net):
 
         index = 0
         #This unit's input is always first
-        # input_list[index] = (unit.temp_hp / 100.0)
-        # index += 1
+        input_list[index] = (unit.temp_hp / 100.0)
+        index += 1
 
         #Allied pieces input
         for i in range(len(my_units)):
             c_unit = my_units[i]
-            input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
-            input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
+            if c_unit == unit:  #Input for selected unit entered at beginning
+                continue
+            input_list[index] = (c_unit.pos[0] - move.pos[0])/(map_manager.Map.shape[0]-1)
+            if map_manager.curr_team == 1:
+                input_list[index+1] = 1 - (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
+            else:
+                input_list[index+1] = (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
             index += 3
 
@@ -56,8 +61,11 @@ def neat_ai(map_manager, unit, net):
         for i in range(len(op_units)):
 
             c_unit = op_units[i]
-            input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
-            input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
+            input_list[index] = (c_unit.pos[0] - move.pos[0])/(map_manager.Map.shape[0]-1)
+            if map_manager.curr_team == 1:
+                input_list[index+1] = 1- (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
+            else:
+                input_list[index+1] = (c_unit.pos[1] - move.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
             index += 3
 
@@ -137,18 +145,16 @@ def script_ai(map_manager, unit):
     return win_move    #Tuple
 
 
-def script_performance(games, best_genome, config, dimensions):
+def script_performance(manager, games, best_genome, config):
     my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
 
     games_run = games
     wins = 0
-    dimensions = (7,7)
     units_per_side = 5
-    manager = map_manager(dimensions)
 
-    for i in range(games_run):
+    for j in range(games_run):
         #also resets map
-        manager.setup_even(dimensions, units_per_side)
+        manager.setup_rand(units_per_side)
 
         while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
 
@@ -163,7 +169,7 @@ def script_performance(games, best_genome, config, dimensions):
             #Next Turn
             manager.Turn()
         
-        if (manager.game_joever() == 0):
+        if (manager.game_feedback() == 0):
             wins +=1
 
     winrate = (wins / games_run)
