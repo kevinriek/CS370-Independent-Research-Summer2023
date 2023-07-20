@@ -20,16 +20,24 @@ Population = None
 def eval_genomes(genomes, config):
     
     #Self-play
-    #Getting best genome
-    global Population
-    best_genome = Population.best_genome
-    #best_genome = Population.reporters[1].best_genome
-    if best_genome is None:
-        print('defaulting to this genome')
-        best_id, best_genome = genomes[0]
-    op_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
-    
-    games_run = 10
+    # #Getting best genome
+    # global Population
+    # best_genome = Population.best_genome
+    # #best_genome = Population.reporters[1].best_genome
+    # if best_genome is None:
+    #     print('defaulting to first genome')
+    #     best_id, best_genome = genomes[0]
+    # op_net = neat.nn.FeedForwardNetwork.create(op_genome, config)
+
+    # Getting best genomes of past x generaations
+    global best_genomes_reporter
+    best_genome_count = 1
+    best_genomes = best_genomes_reporter.return_best(best_genome_count)
+    if len(best_genomes) == 0:
+        print('defaulting to first genome')
+        best_genomes.append(genomes[0][1])
+
+    games_run = 15
     dimensions = (7,7)
     units_per_side = 5
     manager = map_manager(dimensions)
@@ -40,6 +48,8 @@ def eval_genomes(genomes, config):
         
         #sum = 0.0
         for j in range(games_run):
+            op_genome = best_genomes[j % len(best_genomes)]
+            op_net = neat.nn.FeedForwardNetwork.create(op_genome, config)
             #also resets map
             #Rand setup with pick i, also resets map
             manager.setup_rand(units_per_side)
@@ -84,12 +94,19 @@ def run(config_file, run_name):
     # Add a stdout reporter to show progress in the terminal.
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
+    global Stats
+    Stats = stats
+
     p.add_reporter(stats)
     script = vs_script_reporter(25, (7, 7))     #25 games, 7x7
     p.add_reporter(script)
     plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
                          save_file=False, script_reporter=script)
     p.add_reporter(plot)
+
+    global best_genomes_reporter
+    best_genomes_reporter = genome_reporter()
+    p.add_reporter(best_genomes_reporter)
 
     #THIS ENABLES CHECKPOINTS
     if not os.path.exists('./checkpoints/{}'.format(run_name)):
@@ -99,7 +116,7 @@ def run(config_file, run_name):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 10
+    generations = 100
     winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.
@@ -202,4 +219,13 @@ class vs_script_reporter(neat.reporting.BaseReporter):
         self.winrate_list.append(gen_rate)
         print("This generation's best genome's winrate vs. script: {}".format(round(gen_rate, 2)))
               
+class genome_reporter(neat.reporting.BaseReporter):
+    def __init__(self):
+        self.best_genomes = [] #The best genome in each generation
 
+    def post_evaluate(self, config, population, species, best_genome):
+        #make sure that this genome is actually the best from that GENERATION
+        self.best_genomes.append(best_genome)
+
+    def return_best(self, n):
+        return self.best_genomes[:n]
