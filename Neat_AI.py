@@ -66,11 +66,15 @@ def eval_genomes(genomes, config):
         genome.fitness = (wins / games_run)
         
 def run(config_file, run_name):
+    
+    run_name = run_name.replace(' ', '-')
+    if os.path.exists('./best/{}-genome'.format(run_name)):
+        raise NameError('This name, {}, is already used. Delete the previous "./best" and "./checkpoint" files or pick a new run name.'.format(run_name))
+    
     # Load configuration.
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_file)
-     = 'Relative-Position-Eval-Func_selfPlay'
 
     # Create the population, which is the top-level object for a NEAT run.
     p = neat.Population(config)
@@ -81,11 +85,13 @@ def run(config_file, run_name):
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    script = vs_script_reporter(10, (10, 10))     #25 games, 7x7
+    script = vs_script_reporter(25, (7, 7))     #25 games, 7x7
     p.add_reporter(script)
+    plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
+                         save_file=False, script_reporter=script)
+    p.add_reporter(plot)
 
     #THIS ENABLES CHECKPOINTS
-
     if not os.path.exists('./checkpoints/{}'.format(run_name)):
         os.makedirs('./checkpoints/{}'.format(run_name))
     checkpoint = neat.Checkpointer(generation_interval=5, filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
@@ -93,7 +99,7 @@ def run(config_file, run_name):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 100
+    generations = 10
     winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.
@@ -103,8 +109,8 @@ def run(config_file, run_name):
     print('\nOutput:')
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
-    plot_stats(stats, run_name)
-    plot_script_performance(script, run_name)
+    plot_stats(stats, run_name, "./plots/")
+    plot_script_performance(script, run_name, "./plots/")
     
     winner.write_config('./best/{}-config'.format(run_name), config)
     with open('./best/{}-genome'.format(run_name), "wb") as f:
@@ -122,25 +128,68 @@ def load_net(config_path, path):
     net = neat.nn.FeedForwardNetwork.create(genome, config)
     return net
 
-def plot_stats(stats_reporter, name):
+def plot_stats(stats_reporter, name, path=""):
     plt.plot(stats_reporter.get_fitness_stat(max))
     plt.title("{} Best Fitness vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Best Fitness")
+
+    if path != "":
+        filepath = path + "{} Best Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+        plt.savefig(filepath)
     plt.show()
 
     plt.plot(stats_reporter.get_fitness_mean())
     plt.title("{} Mean Fitness vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Mean Fitness")
+    
+    if path != "":
+        filepath = path + "{} Mean Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+        plt.savefig(filepath)
     plt.show()
 
-def plot_script_performance(script_reporter, name):
+def plot_script_performance(script_reporter, name, path=""):
     plt.plot(script_reporter.winrate_list)
     plt.title("{} Best Genome Winrate vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Best Genome Winrate vs. Script")
+    
+    if path != "":
+        filepath = path + "{} Best Genome Winrate vs. Script".format(name).replace(' ', '-') + '.jpg'
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+        plt.savefig(filepath)
     plt.show()
+
+
+class plot_reporter(neat.reporting.BaseReporter):
+    def __init__(self, generation_interval, stats_reporter, run_name="", save_file=False, script_reporter=None):
+        self.gen_interval = generation_interval
+        self.run_name = run_name
+        self.filepath = "./plots/{}".format(run_name)
+        self.script_reporter = script_reporter
+        self.stats_reporter = stats_reporter
+        self.save = save_file
+
+        self.gen_count = 0
+
+    def post_evaluate(self, config, population, species, best_genome):
+        self.gen_count += 1
+        if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
+            if self.save:
+                plot_stats(self.stats_reporter, self.run_name, "./plots/")
+            else:
+                plot_stats(self.stats_reporter, self.run_name)
+            if (self.script_reporter is not None):
+                if self.save:
+                    plot_script_performance(self.script_reporter, self.run_name, "./plots/")
+                else:
+                    plot_script_performance(self.script_reporter, self.run_name)
 
 class vs_script_reporter(neat.reporting.BaseReporter):
     def __init__(self, games_run, dimensions):
