@@ -2,16 +2,16 @@
 # or the experiment itself.  This is the only required section.
 [NEAT]
 fitness_criterion      = max
-fitness_threshold      = 6.0
-no_fitness_termination = False
-pop_size               = 150
+fitness_threshold      = 1.0
+no_fitness_termination = True
+pop_size               = 100
 reset_on_extinction    = False
 
 [DefaultGenome]
 initial_connection      = full_direct
-activation_default                 = gauss
+activation_default                 = sigmoid
 activation_mutate_rate             = 0.1
-activation_options                 = gauss
+activation_options                 = sigmoid
 aggregation_default                = sum
 aggregation_mutate_rate            = 0.0
 aggregation_options                = sum
@@ -57,7 +57,7 @@ weight_mutate_rate                 = 0.8
 weight_replace_rate                = 0.1
 
 [DefaultSpeciesSet]
-compatibility_threshold = 3.5
+compatibility_threshold = 3.0
 
 [DefaultStagnation]
 max_stagnation       = 100
