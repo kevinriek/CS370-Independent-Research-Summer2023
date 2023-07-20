@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pickle
 
 import AI_modules
-from AI_modules import no_ai, rand_ai, script_ai, neat_ai, script_performance
+from AI_modules import no_ai, rand_ai, script_ai, neat_ai, move_pick_ai, script_performance
 
 import GameManager
 from GameManager import map_manager, Tile, Unit, Team
@@ -20,22 +20,18 @@ Population = None
 def eval_genomes(genomes, config):
     
     #Self-play
-    # #Getting best genome
-    # global Population
-    # best_genome = Population.best_genome
-    # #best_genome = Population.reporters[1].best_genome
-    # if best_genome is None:
-    #     print('defaulting to first genome')
-    #     best_id, best_genome = genomes[0]
-    # op_net = neat.nn.FeedForwardNetwork.create(op_genome, config)
-
     # Getting best genomes of past x generaations
     global best_genomes_reporter
-    best_genome_count = 1
+    best_genome_count = 3
     best_genomes = best_genomes_reporter.return_best(best_genome_count)
     if len(best_genomes) == 0:
         print('defaulting to first genome')
         best_genomes.append(genomes[0][1])
+
+    op_nets = []
+    for op_genome in best_genomes:
+        op_nets.append(neat.nn.FeedForwardNetwork.create(op_genome, config))
+
 
     games_run = 15
     dimensions = (7,7)
@@ -48,8 +44,7 @@ def eval_genomes(genomes, config):
         
         #sum = 0.0
         for j in range(games_run):
-            op_genome = best_genomes[j % len(best_genomes)]
-            op_net = neat.nn.FeedForwardNetwork.create(op_genome, config)
+            op_net = op_nets[j % len(best_genomes)]
             #also resets map
             #Rand setup with pick i, also resets map
             manager.setup_rand(units_per_side)
@@ -58,13 +53,17 @@ def eval_genomes(genomes, config):
                 for unit in manager.Teams[manager.curr_team].live_units:
                     win_move = (0, 0)
                     if manager.curr_team == 0:
+                        #win_move = move_pick_ai(manager, unit, my_net)
                         win_move = neat_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
+                        #win_move = move_pick_ai(manager, unit, op_net)
+                        #win_move = script_ai(manager, unit)
                         win_move = neat_ai(manager, unit, op_net)
                     manager.move_unit(unit, win_move)
-                #print(manager)
+                    #print(manager)
                 manager.Turn()
-                
+            
+            #print(manager)
             #sum += manager.game_feedback()
             if (manager.game_feedback() == 0):
                 wins +=1
@@ -98,7 +97,7 @@ def run(config_file, run_name):
     Stats = stats
 
     p.add_reporter(stats)
-    script = vs_script_reporter(25, (7, 7))     #25 games, 7x7
+    script = vs_script_reporter(25, (5, 5))     #25 games, 7x7
     p.add_reporter(script)
     plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
                          save_file=False, script_reporter=script)
@@ -227,5 +226,6 @@ class genome_reporter(neat.reporting.BaseReporter):
         #make sure that this genome is actually the best from that GENERATION
         self.best_genomes.append(best_genome)
 
+    #Returns the best genome from the last n generations
     def return_best(self, n):
-        return self.best_genomes[:n]
+        return self.best_genomes[-n:]

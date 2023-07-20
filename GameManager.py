@@ -78,6 +78,7 @@ class map_manager:
                         Map[new_pos].move_parent = curr_tile
                         if (Map[new_pos].unit_ref is not None):
                             Map[new_pos].is_attack = True
+                            Map[new_pos].visited = True
                         else:
                             #Should prevent movement through opponents
                             prio_queue.put(Map[new_pos])
@@ -138,7 +139,7 @@ class map_manager:
         
     def sim_combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25
+        def_dmg = (att_unit.Att / def_unit.Def) * 50 #25
 
         def_unit.temp_hp = def_unit.hp - def_dmg
         if (def_unit.temp_hp <= 0):
@@ -150,7 +151,7 @@ class map_manager:
 
     def combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25
+        def_dmg = (att_unit.Att / def_unit.Def) * 50 #*25
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
         def_unit.temp_hp = def_unit.hp
