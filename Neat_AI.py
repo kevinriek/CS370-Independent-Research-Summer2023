@@ -33,7 +33,7 @@ def eval_genomes(genomes, config):
         op_nets.append(neat.nn.FeedForwardNetwork.create(op_genome, config))
 
 
-    games_run = 15
+    games_run = 25
     dimensions = (7,7)
     units_per_side = 5
     manager = map_manager(dimensions)
@@ -97,7 +97,7 @@ def run(config_file, run_name):
     Stats = stats
 
     p.add_reporter(stats)
-    script = vs_script_reporter(25, (5, 5))     #25 games, 7x7
+    script = vs_script_reporter(50, (7, 7))     #25 games, 7x7
     p.add_reporter(script)
     plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
                          save_file=False, script_reporter=script)
