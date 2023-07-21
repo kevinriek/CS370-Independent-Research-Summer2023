@@ -190,16 +190,22 @@ def script_ai(map_manager, unit):
     return win_move    #Tuple
 
 
-def script_performance(manager, games, best_genome, config):
+def script_performance(manager, best_genome, config):
     my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
 
-    games_run = games
+    games_run = len(manager.map_layouts) * 2
     wins = 0
-    units_per_side = 5
+    #units_per_side = 5
 
-    for j in range(games_run):
+    for i in range(games_run):
         #also resets map
-        manager.setup_rand(units_per_side)
+        #manager.setup_rand(units_per_side)
+        manager.apply_map_layout(i % len(manager.map_layouts))
+        #Alternate which side starts
+        if i > len(manager.map_layouts):
+            #Note that this makes the turn count end earlier
+            manager.curr_team = 1
+
 
         while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
 

@@ -10,6 +10,9 @@ class map_manager:
         self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
         self.Units = []
         
+        self.map_layouts = []
+        self.layout_unit_count = 0
+
         self.Teams = [Team(0), Team(1)]
         self.curr_team = 0
         self.turn_count = 0
@@ -33,9 +36,11 @@ class map_manager:
 
     def reset_map(self):
         self.Units = []
+        self.clear_movement()
         for i in range(self.Map.shape[0]):
             for j in range(self.Map.shape[1]):
-                self.Map[i, j].unit_ref = None
+                tile = self.Map[i, j]
+                tile.unit_ref = None
         for team in self.Teams:
             team.units = []
             team.live_units = []
@@ -103,9 +108,11 @@ class map_manager:
     def clear_movement(self):
         for i in range(self.Map.shape[0]):
             for j in range(self.Map.shape[1]):
-                self.Map[i,j].move_cost = float('inf')
-                self.Map[i,j].visited = False
-                self.Map[i,j].is_attack = False
+                tile = self.Map[i,j]
+                tile.move_cost = float('inf')
+                tile.visited = False
+                tile.is_attack = False
+                tile.move_parent = None
         self.visited_tiles = []
         
     
@@ -176,6 +183,34 @@ class map_manager:
         #for unit in self.Units:
         #    if (unit.Team == self.curr_team):
         #        unit.curr_move = unit.max_move
+
+    def setup_layouts_rand(self, layout_n, unit_count):
+        self.map_layouts = []
+        dimensions = self.Map.shape
+        
+        for n in range(layout_n):
+            pos_ls = []
+            for i in range(unit_count):
+                pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
+                                round(random.uniform(0, dimensions[1]/7))))
+            for i in range(unit_count):
+                pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
+                                round(random.uniform(dimensions[1]-(1+dimensions[1]/7), dimensions[1]-1))))
+
+            self.map_layouts.append(pos_ls)
+
+        self.layout_unit_count = unit_count 
+
+
+    def apply_map_layout(self, i):
+        self.reset_map()
+        layout = self.map_layouts[i]
+
+        for i in range(self.layout_unit_count):
+            self.place_unit(layout[i], 0)
+        for i in range(self.layout_unit_count):
+            self.place_unit(layout[self.layout_unit_count+i], 1)  
+
 
     def setup_rand(self, unit_count):
         dimensions = self.Map.shape

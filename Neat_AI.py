@@ -22,7 +22,7 @@ def eval_genomes(genomes, config):
     #Self-play
     # Getting best genomes of past x generaations
     global best_genomes_reporter
-    best_genome_count = 3
+    best_genome_count = 1
     best_genomes = best_genomes_reporter.return_best(best_genome_count)
     if len(best_genomes) == 0:
         print('defaulting to first genome')
@@ -32,25 +32,29 @@ def eval_genomes(genomes, config):
     for op_genome in best_genomes:
         op_nets.append(neat.nn.FeedForwardNetwork.create(op_genome, config))
 
-
-    games_run = 25
-    dimensions = (7,7)
-    units_per_side = 5
-    manager = map_manager(dimensions)
+    global manager
+    games_run = len(manager.map_layouts) * 2 #one game for each layout, from each side (times 2)
 
     for genome_id, genome in genomes:
         wins = 0
         my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
         
         #sum = 0.0
-        for j in range(games_run):
-            op_net = op_nets[j % len(best_genomes)]
+        for i in range(games_run):
+            manager.apply_map_layout(i % len(manager.map_layouts))
+            op_net = op_nets[i % len(best_genomes)]
+
             #also resets map
             #Rand setup with pick i, also resets map
-            manager.setup_rand(units_per_side)
+            #manager.setup_rand(units_per_side)
+            
+            #Alternate which side starts
+            if i > len(manager.map_layouts):
+                #Note that this makes the turn count end earlier
+                manager.curr_team = 1
 
-            while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
-                for unit in manager.Teams[manager.curr_team].live_units:
+            while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
+                for unit in manager.Teams[manager.curr_team].live_units:               
                     win_move = (0, 0)
                     if manager.curr_team == 0:
                         #win_move = move_pick_ai(manager, unit, my_net)
@@ -97,14 +101,14 @@ def run(config_file, run_name):
     Stats = stats
 
     p.add_reporter(stats)
-    script = vs_script_reporter(50, (7, 7))     #25 games, 7x7
+    script = vs_script_reporter(50, (8, 8))     #50 games, 7x7
     p.add_reporter(script)
     plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
                          save_file=False, script_reporter=script)
     p.add_reporter(plot)
 
     global best_genomes_reporter
-    best_genomes_reporter = genome_reporter()
+    best_genomes_reporter = genome_reporter(generation_interval=5, run_name=run_name)
     p.add_reporter(best_genomes_reporter)
 
     #THIS ENABLES CHECKPOINTS
@@ -115,8 +119,21 @@ def run(config_file, run_name):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 100
+    generations = 5
+
+    #Global manager
+    global manager
+    dimensions = (8,8)
+    manager = map_manager(dimensions)
+    manager.setup_layouts_rand(layout_n=10, unit_count=5)
+
     winner = p.run(eval_genomes, generations)
+
+####################################################################
+    #TEMPORARY: overwrite with best vs. script
+    print('NOTE: RETURNING BEST vs. SCRIPT')
+    winner = script.best_vs_script
+###################################################################
 
     # Display the winning genome.
     print('\nBest genome:\n{!s}'.format(winner))
@@ -170,7 +187,7 @@ def plot_stats(stats_reporter, name, path=""):
     plt.show()
 
 def plot_script_performance(script_reporter, name, path=""):
-    plt.plot(script_reporter.winrate_list)
+    plt.plot(script_reporter.script_performance.values())
     plt.title("{} Best Genome Winrate vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Best Genome Winrate vs. Script")
@@ -209,23 +226,37 @@ class plot_reporter(neat.reporting.BaseReporter):
 
 class vs_script_reporter(neat.reporting.BaseReporter):
     def __init__(self, games_run, dimensions):
-        self.winrate_list = []
         self.games = games_run
         self.manager = map_manager(dimensions)
+        self.manager.setup_layouts_rand(layout_n=games_run, unit_count=5)
+        self.script_performance = {}
+        self.best_vs_script = None
 
     def post_evaluate(self, config, population, species, best_genome):
-        gen_rate = script_performance(self.manager, self.games, best_genome, config)
-        self.winrate_list.append(gen_rate)
-        print("This generation's best genome's winrate vs. script: {}".format(round(gen_rate, 2)))
+        win_rate = script_performance(self.manager, best_genome, config)
+        self.script_performance[best_genome] = win_rate
+        if self.best_vs_script is None:
+            self.best_vs_script = best_genome
+        elif win_rate > self.script_performance[self.best_vs_script]:
+            self.best_vs_script = best_genome
+        print("This generation's best genome's winrate vs. script: {}".format(round(win_rate, 2)))
               
 class genome_reporter(neat.reporting.BaseReporter):
-    def __init__(self):
+    def __init__(self, generation_interval, run_name):
         self.best_genomes = [] #The best genome in each generation
+        self.gen_count = 0
+        self.gen_interval = generation_interval
+        self.run_name = run_name
 
     def post_evaluate(self, config, population, species, best_genome):
+        self.gen_count += 1
         #make sure that this genome is actually the best from that GENERATION
         self.best_genomes.append(best_genome)
-
+        if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
+            best_genome.write_config('./best/{}-config'.format(self.run_name), config)
+            with open('./best/{}-genome'.format(self.run_name), "wb") as f:
+                pickle.dump(best_genome, f)
+                f.close()
     #Returns the best genome from the last n generations
     def return_best(self, n):
         return self.best_genomes[-n:]
