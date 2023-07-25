@@ -146,7 +146,7 @@ class map_manager:
         
     def sim_combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 50 #25
+        def_dmg = (att_unit.Att / def_unit.Def) * 25
 
         def_unit.temp_hp = def_unit.hp - def_dmg
         if (def_unit.temp_hp <= 0):
@@ -158,7 +158,7 @@ class map_manager:
 
     def combat(self, att_unit, def_unit):
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 50 #*25
+        def_dmg = (att_unit.Att / def_unit.Def) * 25
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
         def_unit.temp_hp = def_unit.hp

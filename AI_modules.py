@@ -212,8 +212,8 @@ def script_performance(manager, best_genome, config):
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    win_move = neat_ai(manager, unit, my_net)
-                    #win_move = move_pick_ai(manager, unit, my_net)
+                    #win_move = neat_ai(manager, unit, my_net)
+                    win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     win_move = script_ai(manager, unit)
                 manager.move_unit(unit, win_move)

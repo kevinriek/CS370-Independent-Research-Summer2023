@@ -24,8 +24,11 @@ def eval_genomes(genomes, config):
     global best_genomes_reporter
     best_genome_count = 1
     best_genomes = best_genomes_reporter.return_best(best_genome_count)
+
+    default = False
     if len(best_genomes) == 0:
         print('defaulting to first genome')
+        default = True
         best_genomes.append(genomes[0][1])
 
     op_nets = []
@@ -36,6 +39,10 @@ def eval_genomes(genomes, config):
     games_run = len(manager.map_layouts) * 2 #one game for each layout, from each side (times 2)
 
     for genome_id, genome in genomes:
+        # if genome == best_genomes[0] and not default:
+        #     genome.fitness = 0.5
+        #     continue
+
         wins = 0
         my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
         
@@ -58,11 +65,11 @@ def eval_genomes(genomes, config):
                     win_move = (0, 0)
                     if manager.curr_team == 0:
                         #win_move = move_pick_ai(manager, unit, my_net)
-                        win_move = neat_ai(manager, unit, my_net)
+                        win_move = move_pick_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
                         #win_move = move_pick_ai(manager, unit, op_net)
                         #win_move = script_ai(manager, unit)
-                        win_move = neat_ai(manager, unit, op_net)
+                        win_move = move_pick_ai(manager, unit, op_net)
                     manager.move_unit(unit, win_move)
                     #print(manager)
                 manager.Turn()
@@ -101,7 +108,7 @@ def run(config_file, run_name):
     Stats = stats
 
     p.add_reporter(stats)
-    script = vs_script_reporter(50, (8, 8))     #50 games, 7x7
+    script = vs_script_reporter(25, (8, 8))     #50 (25 x 2)games, 8x8
     p.add_reporter(script)
     plot = plot_reporter(generation_interval=5, stats_reporter=stats, run_name=run_name,
                          save_file=False, script_reporter=script)
@@ -119,20 +126,20 @@ def run(config_file, run_name):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 5
+    generations = 30
 
     #Global manager
     global manager
     dimensions = (8,8)
     manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=10, unit_count=5)
+    manager.setup_layouts_rand(layout_n=5, unit_count=5)
 
     winner = p.run(eval_genomes, generations)
 
 ####################################################################
     #TEMPORARY: overwrite with best vs. script
     print('NOTE: RETURNING BEST vs. SCRIPT')
-    winner = script.best_vs_script
+    config_path = script.best_vs_script
 ###################################################################
 
     # Display the winning genome.
@@ -150,7 +157,7 @@ def run(config_file, run_name):
         pickle.dump(winner, f)
         f.close()
     
-    return winner_net, stats
+    return winner_net, winner, stats
 
 def load_net(config_path, path):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
@@ -243,20 +250,25 @@ class vs_script_reporter(neat.reporting.BaseReporter):
               
 class genome_reporter(neat.reporting.BaseReporter):
     def __init__(self, generation_interval, run_name):
-        self.best_genomes = [] #The best genome in each generation
         self.gen_count = 0
         self.gen_interval = generation_interval
         self.run_name = run_name
+        
+        self.best_genome = None #The best genome in each generation
+        self.best_generation = None #The generation with the best genome so far
 
     def post_evaluate(self, config, population, species, best_genome):
         self.gen_count += 1
-        #make sure that this genome is actually the best from that GENERATION
-        self.best_genomes.append(best_genome)
+        if best_genome.fitness > self.best_genome.fitness or best_genome is None:
+            self.best_genome = best_genome
+            self.best_generation = population.generation
+
         if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
             best_genome.write_config('./best/{}-config'.format(self.run_name), config)
             with open('./best/{}-genome'.format(self.run_name), "wb") as f:
                 pickle.dump(best_genome, f)
                 f.close()
+
     #Returns the best genome from the last n generations
     def return_best(self, n):
         return self.best_genomes[-n:]
