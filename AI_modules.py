@@ -189,10 +189,7 @@ def script_ai(map_manager, unit):
     
     return win_move    #Tuple
 
-
-def script_performance(manager, best_genome, config):
-    my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
-
+def neat_performance(manager, my_net, op_net, config):
     games_run = len(manager.map_layouts) * 2
     wins = 0
     #units_per_side = 5
@@ -212,8 +209,43 @@ def script_performance(manager, best_genome, config):
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    #win_move = neat_ai(manager, unit, my_net)
-                    win_move = move_pick_ai(manager, unit, my_net)
+                    win_move = neat_ai(manager, unit, my_net)
+                    #win_move = move_pick_ai(manager, unit, my_net)
+                elif manager.curr_team == 1:
+                    win_move = neat_ai(manager, unit, op_net)
+                manager.move_unit(unit, win_move)
+
+            #Next Turn
+            manager.Turn()
+        
+        if (manager.game_feedback() == 0):
+            wins +=1
+
+    winrate = (wins / games_run)
+    return winrate
+
+def script_performance(manager, my_net, config):
+    games_run = len(manager.map_layouts) * 2
+    wins = 0
+    #units_per_side = 5
+
+    for i in range(games_run):
+        #also resets map
+        #manager.setup_rand(units_per_side)
+        manager.apply_map_layout(i % len(manager.map_layouts))
+        #Alternate which side starts
+        if i > len(manager.map_layouts):
+            #Note that this makes the turn count end earlier
+            manager.curr_team = 1
+
+
+        while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
+
+            for unit in manager.Teams[manager.curr_team].live_units:
+                win_move = (0, 0)
+                if manager.curr_team == 0:
+                    win_move = neat_ai(manager, unit, my_net)
+                    #win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     win_move = script_ai(manager, unit)
                 manager.move_unit(unit, win_move)
