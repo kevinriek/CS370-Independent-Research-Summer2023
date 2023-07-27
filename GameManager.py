@@ -3,6 +3,7 @@ import math
 import queue
 import os
 import random
+import copy
 
 class map_manager:
     def __init__(self, dimensions):
@@ -211,6 +212,8 @@ class map_manager:
         for i in range(self.layout_unit_count):
             self.place_unit(layout[self.layout_unit_count+i], 1)  
 
+    def copy_setup(self, other_manager):
+        self.map_layouts = copy.deepcopy(other_manager.map_layouts)
 
     def setup_rand(self, unit_count):
         dimensions = self.Map.shape

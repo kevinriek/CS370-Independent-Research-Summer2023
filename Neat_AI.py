@@ -7,34 +7,33 @@ import visualize
 import random
 import matplotlib.pyplot as plt
 import pickle
+import threading
+import copy
 
 import AI_modules
-from AI_modules import no_ai, rand_ai, script_ai
-from AI_modules import neat_ai, move_pick_ai, script_performance, neat_performance 
+from AI_modules import *
 
 import GameManager
-from GameManager import map_manager, Tile, Unit, Team
+from GameManager import *
 
+import my_reporters
+from my_reporters import *
+
+# Global variables
+thread_count = 8
+dimensions = (8, 8)
 Population = None
 
-#This is the Eval Func branch
-def eval_genomes(genomes, config):
-    
-    #Self-play
-    # Getting best genomes of past x generaations
-    global best_genomes_reporter
-    op_net = None 
-    if len(best_genomes_reporter.eval_nets) > 1:
-        op_net = best_genomes_reporter.eval_nets[len(best_genomes_reporter.eval_nets)-1]
-
-    global manager
-    games_run = len(manager.map_layouts) * 2 #one game for each layout, from each side (times 2)
-
+def thread_eval(manager, games_run, genomes, config, op_net):
     for genome_id, genome in genomes:
         wins = 0
         my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
         
-        #sum = 0.0
+        # for eval_num in range((len(best_genomes_reporter.eval_nets) + 1)):
+        #     op_net = None
+        #     if eval_num != len(best_genomes_reporter.eval_nets):
+        #         op_net = best_genomes_reporter.eval_nets[eval_num]
+
         for i in range(games_run):
             manager.apply_map_layout(i % len(manager.map_layouts))
             
@@ -51,7 +50,10 @@ def eval_genomes(genomes, config):
                         win_move = neat_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
                         if op_net is None:
-                            win_move = script_ai(manager, unit)
+                            if Population.generation < 10:
+                                win_move = rand_ai(manager, unit)
+                            else:
+                                win_move = script_ai(manager, unit)
                         else:
                             win_move = neat_ai(manager, unit, op_net)
                         #win_move = move_pick_ai(manager, unit, op_net)
@@ -63,12 +65,44 @@ def eval_genomes(genomes, config):
             #sum += manager.game_feedback()
             if (manager.game_feedback() == 0):
                 wins +=1
-            # elif (manager.game_joever() == 1):
-            #     wins -= 1
 
         #print('wins: ' + str(wins))
         #manager.game_feedback()
         genome.fitness = (wins / games_run)
+
+#This is the Eval Func branch
+def eval_genomes(genomes, config):
+    
+    #Self-play
+    # Getting best genomes of past x generaations
+    global best_genomes_reporter
+    op_net = None 
+    if len(best_genomes_reporter.eval_nets) > 0:
+        op_net = best_genomes_reporter.eval_nets[len(best_genomes_reporter.eval_nets)-1]
+
+    global managers
+    #one game for each layout, from each side (times 2)
+    # games_run = (len(best_genomes_reporter.eval_nets) + 1) * len(manager.map_layouts) * 2 
+    games_run = len(managers[0].map_layouts) * 2 
+    genomes_per_thread = len(genomes) // thread_count
+    threads = []
+
+    for i in range(thread_count):
+        start = i * genomes_per_thread
+        end = (i+1) * genomes_per_thread
+        if i == thread_count - 1:
+            end = len(genomes)
+        
+        print('start: {}'.format(start))
+        print('end: {}'.format(end))
+        thread_genomes = genomes[start : end]
+        t = threading.Thread(target=thread_eval, args=[managers[i], games_run, thread_genomes, config, op_net])
+        t.start()
+        threads.append(t)
+    
+    for thread in threads:
+        thread.join()
+        print('thread done!')
         
 def run(config_file, run_name):
     
@@ -93,15 +127,16 @@ def run(config_file, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    gen_interval = 5
+    gen_interval = 20
     global best_genomes_reporter
-    best_genomes_reporter = genome_reporter(generation_interval=gen_interval, run_name=run_name)
-    eval = eval_reporter(25, (8, 8), best_genomes_reporter)     #50 (25 x 2)games, 8x8
-    p.add_reporter(eval)
+    best_genomes_reporter = genome_reporter(generation_interval=gen_interval, run_name=run_name, Population=p)
     p.add_reporter(best_genomes_reporter)
 
+    eval = eval_reporter(20, dimensions, best_genomes_reporter)     #40 (20 x 2)games, 8x8
+    p.add_reporter(eval)    
+
     plot = plot_reporter(generation_interval=gen_interval, stats_reporter=stats, run_name=run_name,
-                         save_file=False, eval_reporter=eval)
+                         save_file=False, eval_reporter=eval, genome_reporter=best_genomes_reporter)
     p.add_reporter(plot)
 
     #THIS ENABLES CHECKPOINTS
@@ -113,14 +148,22 @@ def run(config_file, run_name):
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 100
+    generations = 250
 
     #Global manager
-    global manager
-    dimensions = (8,8)
-    manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=gen_interval, unit_count=5)
+    global managers
+    managers = []
 
+    #root manager
+    root_manager = map_manager(dimensions)
+    root_manager.setup_layouts_rand(layout_n=20, unit_count=5)
+
+    #set up each thread with a unique manager that has a copy of the same map layouts
+    for i in range(thread_count):
+        thread_manager = map_manager(dimensions)
+        thread_manager.map_layouts = copy.deepcopy(root_manager.map_layouts)
+        managers.append(thread_manager)
+        
     winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.
@@ -148,159 +191,3 @@ def load_net(config_path, path):
 
     net = neat.nn.FeedForwardNetwork.create(genome, config)
     return net
-
-def plot_stats(stats_reporter, generation_interval, name, path=""):
-    plt.plot(stats_reporter.get_fitness_stat(max))
-    plt.title("{} Best Fitness vs. Generation".format(name))
-    plt.xlabel("Generation")
-    plt.ylabel("Best Fitness")
-    for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-        plt.axvline(x=(x * generation_interval), color='k')
-
-    if path != "":
-        filepath = path + "{} Best Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-        plt.savefig(filepath)
-    plt.show()
-
-    plt.plot(stats_reporter.get_fitness_mean())
-    plt.title("{} Mean Fitness vs. Generation".format(name))
-    plt.xlabel("Generation")
-    plt.ylabel("Mean Fitness")
-    for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-        plt.axvline(x=(x * generation_interval), color='k')
-    
-    if path != "":
-        filepath = path + "{} Mean Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-        plt.savefig(filepath)
-    plt.show()
-
-
-def plot_eval_performance(eval_reporter, gen_interval, name, path=""):
-    length = len(eval_reporter.eval_performance['script'])
-    c = ['b', 'r', 'g', 'c', 'm', 'y']
-    ci = 0
-    for key, vals in eval_reporter.eval_performance.items():
-        print('start: ' + str(ci * gen_interval))
-        print('end: ' + str((ci * gen_interval) + len(vals)))
-        
-        plt.plot(list(range(ci * gen_interval, (ci * gen_interval) + len(vals))),
-                vals, color=c[ci % len(c)], label=key)
-        ci += 1
-
-    # for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-    #     plt.axvline(x=(x * generation_interval), color='k')
-    
-    plt.title("{} Best Genome Winrate vs. Generation".format(name))
-    plt.xlabel("Generation")
-    plt.ylabel("Best Genome Winrate vs. Script")
-    
-    if path != "":
-        filepath = path + "{} Best Genome Winrate vs. Script".format(name).replace(' ', '-') + '.jpg'
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-        plt.savefig(filepath)
-    plt.show()
-
-
-class plot_reporter(neat.reporting.BaseReporter):
-    def __init__(self, generation_interval, stats_reporter, run_name="", save_file=False, eval_reporter=None):
-        self.gen_interval = generation_interval
-        self.run_name = run_name
-        self.filepath = "./plots/{}".format(run_name)
-        self.eval_reporter = eval_reporter
-        self.stats_reporter = stats_reporter
-        self.save = save_file
-
-        self.gen_count = 0
-
-    def post_evaluate(self, config, population, species, best_genome):
-        self.gen_count += 1
-        if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
-            if self.save:
-                plot_stats(self.stats_reporter, self.gen_interval, self.run_name, "./plots/")
-            else:
-                plot_stats(self.stats_reporter, self.gen_interval, self.run_name)
-            if (self.eval_reporter is not None):
-                if self.save:
-                    plot_eval_performance(self.eval_reporter, self.gen_interval, self.run_name, "./plots/")
-                else:
-                    plot_eval_performance(self.eval_reporter, self.gen_interval, self.run_name)
-
-class eval_reporter(neat.reporting.BaseReporter):
-    def __init__(self, games_run, dimensions, genome_reporter):
-        self.games = games_run
-        self.manager = map_manager(dimensions)
-        self.manager.setup_layouts_rand(layout_n=games_run, unit_count=5)
-        
-        self.eval_performance = {}
-        self.genome_reporter = genome_reporter
-
-    def post_evaluate(self, config, population, species, best_genome):
-        my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
-        
-        win_rate = script_performance(self.manager, my_net, config)
-        if 'script' in self.eval_performance:
-            self.eval_performance['script'].append(win_rate)
-        else:
-            self.eval_performance['script'] = [win_rate]
-        print("Winrate vs. {} : {}".format('script', win_rate))
-        
-        for i in range(len(self.genome_reporter.eval_nets)):
-            op_net = self.genome_reporter.eval_nets[i]
-
-            win_rate = neat_performance(self.manager, my_net, op_net, config)
-            if str(i + 1) not in self.eval_performance:
-                self.eval_performance[str(i+1)] = [win_rate]
-            else:
-                self.eval_performance[str(i+1)].append(win_rate)
-            print("Winrate vs. {} : {}".format(str(i+1), win_rate))
-
-class genome_reporter(neat.reporting.BaseReporter):
-    def __init__(self, generation_interval, run_name):
-        self.gen_count = 0
-        self.gen_interval = generation_interval
-        self.run_name = run_name
-        
-        self.best_genome = None     #The best genome in each generation
-        self.best_pop = None        #The population (dict, not class) with the best genome so far
-        self.best_species = None
-        self.eval_nets = []
-
-    def post_evaluate(self, config, population, species, best_genome):
-        self.gen_count += 1
-        if (self.best_genome is None) or (best_genome.fitness > self.best_genome.fitness):
-            #print("New best genome: {}".format(best_genome))
-            self.best_genome = best_genome
-            self.best_pop = population
-            self.best_species = species
-
-        if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
-            #print('interval!')
-            self.eval_nets.append(neat.nn.FeedForwardNetwork.create(self.best_genome, config))
-            #print(self.eval_nets)
-            
-            #Change population's population to this
-            global Population
-            #print('Old population: {}'.format(Population.population))
-            
-            Population.population = self.best_pop
-            #print('New population: {}'.format(Population.population))
-            Population.species = self.best_species
-
-            self.best_genome = None 
-            self.best_pop = None    
-            self.best_species = None
-
-        # if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
-        #     best_genome.write_config('./best/{}-config'.format(self.run_name), config)
-        #     with open('./best/{}-genome'.format(self.run_name), "wb") as f:
-        #         pickle.dump(best_genome, f)
-        #         f.close()
-
-    #Returns the best genome from the last n generations
-    def return_best(self, n):
-        return self.best_genomes[-n:]
