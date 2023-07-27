@@ -120,7 +120,7 @@ class eval_reporter(neat.reporting.BaseReporter):
 
 class genome_reporter(neat.reporting.BaseReporter):
     def __init__(self, generation_interval, run_name, Population):
-        self.gen_count = 0
+        self.gen_count = -1
         self.gen_interval = generation_interval
         self.run_name = run_name
         
@@ -142,7 +142,7 @@ class genome_reporter(neat.reporting.BaseReporter):
 
         #For random phase, of 10 iterations
         if (self.gen_count == 10 and self.rand_phase == True):
-            self.gen_count = 1
+            self.gen_count = 0
             self.rand_phase = False
 
             self.Population.population = self.best_pop
@@ -169,6 +169,8 @@ class genome_reporter(neat.reporting.BaseReporter):
         #     with open('./best/{}-genome'.format(self.run_name), "wb") as f:
         #         pickle.dump(best_genome, f)
         #         f.close()
+
+       
 
     #Returns the best genome from the last n generations
     def return_best(self, n):
