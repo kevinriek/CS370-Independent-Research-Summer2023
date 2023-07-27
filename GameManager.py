@@ -213,6 +213,8 @@ class map_manager:
             self.place_unit(layout[self.layout_unit_count+i], 1)  
 
     def copy_setup(self, other_manager):
+        self.dimensions = other_manager.Map.shape
+        self.layout_unit_count = other_manager.layout_unit_count 
         self.map_layouts = copy.deepcopy(other_manager.map_layouts)
 
     def setup_rand(self, unit_count):

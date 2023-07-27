@@ -20,12 +20,13 @@ import my_reporters
 from my_reporters import *
 
 # Global variables
-thread_count = 8
+thread_count = 1
 dimensions = (8, 8)
 Population = None
 
 def thread_eval(manager, games_run, genomes, config, op_net):
     for genome_id, genome in genomes:
+        print('start!')
         wins = 0
         my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
         
@@ -93,8 +94,6 @@ def eval_genomes(genomes, config):
         if i == thread_count - 1:
             end = len(genomes)
         
-        print('start: {}'.format(start))
-        print('end: {}'.format(end))
         thread_genomes = genomes[start : end]
         t = threading.Thread(target=thread_eval, args=[managers[i], games_run, thread_genomes, config, op_net])
         t.start()
@@ -102,7 +101,6 @@ def eval_genomes(genomes, config):
     
     for thread in threads:
         thread.join()
-        print('thread done!')
         
 def run(config_file, run_name):
     
@@ -130,6 +128,7 @@ def run(config_file, run_name):
     gen_interval = 20
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(generation_interval=gen_interval, run_name=run_name, Population=p)
+    print(best_genomes_reporter.__class__)
     p.add_reporter(best_genomes_reporter)
 
     eval = eval_reporter(20, dimensions, best_genomes_reporter)     #40 (20 x 2)games, 8x8
@@ -140,11 +139,14 @@ def run(config_file, run_name):
     p.add_reporter(plot)
 
     #THIS ENABLES CHECKPOINTS
-    if not os.path.exists('./checkpoints/{}'.format(run_name)):
-        os.makedirs('./checkpoints/{}'.format(run_name))
-    checkpoint = neat.Checkpointer(generation_interval=gen_interval,
-        filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
-    p.add_reporter(checkpoint)
+    #Note: checkpoints currently not working with other reporters in custom my_reporters file
+    #To restore checkpoints, move the reporters back to this file
+
+    # if not os.path.exists('./checkpoints/{}'.format(run_name)):
+    #     os.makedirs('./checkpoints/{}'.format(run_name))
+    # checkpoint = neat.Checkpointer(generation_interval=gen_interval,
+    #     filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
+    # p.add_reporter(checkpoint)
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
@@ -156,12 +158,12 @@ def run(config_file, run_name):
 
     #root manager
     root_manager = map_manager(dimensions)
-    root_manager.setup_layouts_rand(layout_n=20, unit_count=5)
+    root_manager.setup_layouts_rand(layout_n=5, unit_count=5)
 
     #set up each thread with a unique manager that has a copy of the same map layouts
     for i in range(thread_count):
         thread_manager = map_manager(dimensions)
-        thread_manager.map_layouts = copy.deepcopy(root_manager.map_layouts)
+        thread_manager.copy_setup(root_manager)
         managers.append(thread_manager)
         
     winner = p.run(eval_genomes, generations)

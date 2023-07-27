@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import pickle
 import os
 import neat
 
@@ -130,6 +129,7 @@ class genome_reporter(neat.reporting.BaseReporter):
         self.best_species = None
         self.eval_nets = []
 
+        self.Population = Population
         self.rand_phase = True
 
     def post_evaluate(self, config, population, species, best_genome):
@@ -140,15 +140,13 @@ class genome_reporter(neat.reporting.BaseReporter):
             self.best_pop = population
             self.best_species = species
 
-        global Population
-
         #For random phase, of 10 iterations
         if (self.gen_count == 10 and self.rand_phase == True):
             self.gen_count = 1
             self.rand_phase = False
 
-            Population.population = self.best_pop
-            Population.species = self.best_species
+            self.Population.population = self.best_pop
+            self.Population.species = self.best_species
 
             self.best_genome = None 
             self.best_pop = None    
@@ -159,11 +157,8 @@ class genome_reporter(neat.reporting.BaseReporter):
             #print(self.eval_nets)
             
             #Change population's population to this
-            #print('Old population: {}'.format(Population.population))
-            
-            Population.population = self.best_pop
-            #print('New population: {}'.format(Population.population))
-            Population.species = self.best_species
+            self.Population.population = self.best_pop
+            self.Population.species = self.best_species
 
             self.best_genome = None 
             self.best_pop = None    
