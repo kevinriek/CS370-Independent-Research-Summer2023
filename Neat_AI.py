@@ -7,7 +7,6 @@ import visualize
 import random
 import matplotlib.pyplot as plt
 import pickle
-import threading
 import copy
 
 import AI_modules
