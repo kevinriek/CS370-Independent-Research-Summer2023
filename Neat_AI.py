@@ -24,15 +24,10 @@ Population = None
 multiprocess_pool = None
 managers = []
 
-def thread_eval(config, op_net, genome, manager, gen_count):
+def thread_eval(config, op_net, genome, manager, is_rand):
     games_run = len(manager.map_layouts) * 2
     wins = 0
     my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
-    
-    # for eval_num in range((len(best_genomes_reporter.eval_nets) + 1)):
-    #     op_net = None
-    #     if eval_num != len(best_genomes_reporter.eval_nets):
-    #         op_net = best_genomes_reporter.eval_nets[eval_num]
 
     for i in range(games_run):
         manager.apply_map_layout(i % len(manager.map_layouts))
@@ -46,17 +41,17 @@ def thread_eval(config, op_net, genome, manager, gen_count):
             for unit in manager.Teams[manager.curr_team].live_units:               
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    #win_move = move_pick_ai(manager, unit, my_net)
-                    win_move = neat_ai(manager, unit, my_net)
+                    win_move = move_pick_ai(manager, unit, my_net)
+                    #win_move = neat_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     if op_net is None:
-                        if gen_count < 10:
+                        if is_rand:
                             win_move = rand_ai(manager, unit)
                         else:
                             win_move = script_ai(manager, unit)
                     else:
-                        win_move = neat_ai(manager, unit, op_net)
-                    #win_move = move_pick_ai(manager, unit, op_net)
+                        #win_move = neat_ai(manager, unit, op_net)
+                        win_move = move_pick_ai(manager, unit, op_net)
                 manager.move_unit(unit, win_move)
                 #print(manager)
             manager.Turn()
@@ -88,7 +83,10 @@ def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
         #(config, op_net, genomes, manager, gen_count):
         #change managers[0]
-        input_ls.append((config, op_net, genome, managers[0], Population.generation))
+        if len(best_genomes_reporter.gen_intervals) == 0:
+            input_ls.append((config, op_net, genome, managers[0], True))
+        else:
+            input_ls.append((config, op_net, genome, managers[0], False))
 
     ret_fitness = multiprocess_pool.starmap(thread_eval, input_ls)
     #print("Returned fitness: {}".format(ret_fitness))
@@ -127,16 +125,18 @@ def run(config_file, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    gen_interval = 50
+    max_gen_interval = 100
+    int_fit_threshold = 0.95
     global best_genomes_reporter
-    best_genomes_reporter = genome_reporter(generation_interval=gen_interval, run_name=run_name, Population=p)
+    best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
+        run_name=run_name, Population=p, interval_fitness_threshold=int_fit_threshold)
     p.add_reporter(best_genomes_reporter)
 
     eval = eval_reporter(20, dimensions, best_genomes_reporter)     #40 (20 x 2)games, 8x8
     p.add_reporter(eval)    
 
-    plot = plot_reporter(generation_interval=gen_interval, stats_reporter=stats, run_name=run_name,
-                         save_file=False, eval_reporter=eval, genome_reporter=best_genomes_reporter)
+    plot = plot_reporter(stats_reporter=stats, run_name=run_name, save_file=False, eval_reporter=eval,
+                          genome_reporter=best_genomes_reporter)
     p.add_reporter(plot)
 
     #THIS ENABLES CHECKPOINTS
@@ -144,13 +144,13 @@ def run(config_file, run_name):
 
     if not os.path.exists('./checkpoints/{}'.format(run_name)):
         os.makedirs('./checkpoints/{}'.format(run_name))
-    checkpoint = neat.Checkpointer(generation_interval=gen_interval,
+    checkpoint = neat.Checkpointer(generation_interval=25,
         filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
     p.add_reporter(checkpoint)
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
-    generations = 250
+    generations = 500
 
     #Global manager
     global managers
@@ -173,7 +173,7 @@ def run(config_file, run_name):
     print('\nOutput:')
     winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
 
-    plot_stats(stats, gen_interval, run_name, "./plots/")
+    plot_stats(stats, best_genomes_reporter.gen_intervals, run_name, "./plots/")
     plot_eval_performance(eval, run_name, "./plots/")
     
     winner.write_config('./best/{}-config'.format(run_name), config)

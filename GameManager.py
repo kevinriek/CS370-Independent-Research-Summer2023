@@ -82,6 +82,7 @@ class map_manager:
                     if (Map[new_pos].move_cost > new_cost and new_cost <= unit.max_move):
                         Map[new_pos].move_cost = new_cost
                         Map[new_pos].move_parent = curr_tile
+                        Map[new_pos].rotation = Unit.move_to_rotation[self.directions[i]]
                         if (Map[new_pos].unit_ref is not None):
                             Map[new_pos].is_attack = True
                             Map[new_pos].visited = True
@@ -114,6 +115,7 @@ class map_manager:
                 tile.visited = False
                 tile.is_attack = False
                 tile.move_parent = None
+                tile.rotation = -1
         self.visited_tiles = []
         
     
@@ -121,13 +123,16 @@ class map_manager:
         #move_pos = tuple(np.add(unit.pos, dir))
         if pos == unit.pos:
             return
-        
+
         move_pos = pos
         tile = self.Map[move_pos]
         """        try:                 #CURRENTLY AM NOT SETTING THE VISITED STAT SO THIS DOES NOT WORK
             assert(tile.visited)
         except AssertionError:
             print("Tile {0} not reachable by unit".format(move_pos))"""
+
+        #Change unit rotation before combat
+        unit.rotation = self.Map[move_pos].rotation
 
         if(tile.is_attack == True):
             move_tile = tile.move_parent 
@@ -145,9 +150,16 @@ class map_manager:
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
         
+        
+        
+        
     def sim_combat(self, att_unit, def_unit):
+        dmg_mod = 1
+        if Unit.is_flank(def_unit, att_unit):
+            dmg_mod = 3
+        
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25
+        def_dmg = (att_unit.Att / def_unit.Def) * 20 * dmg_mod
 
         def_unit.temp_hp = def_unit.hp - def_dmg
         if (def_unit.temp_hp <= 0):
@@ -158,8 +170,13 @@ class map_manager:
             unit.temp_hp = unit.hp
 
     def combat(self, att_unit, def_unit):
+        dmg_mod = 1
+        if Unit.is_flank(def_unit, att_unit):
+            dmg_mod = 3
+
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25
+        def_dmg = (att_unit.Att / def_unit.Def) * 20 * dmg_mod
+        print("damage: {}".format(def_dmg))
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
         def_unit.temp_hp = def_unit.hp
@@ -291,7 +308,8 @@ class Tile:
         self.pos = pos
         self.unit_ref = unit
         self.tile_cost = 1.0 #Cost to move onto this tile
-        
+
+        self.rotation = -1
         self.move_cost = float('inf')
         self.move_parent = None
         self.visited = False
@@ -322,6 +340,16 @@ class Team:
         self.live_units = []
 
 class Unit:
+    unit_rotations = {'E': 0, 'S': 1, 'W': 2, 'N':3} 
+    #Note: positive 1 in y direction == going downwards
+    move_to_rotation = {(0, 1) : 0, (1, 0) : 1, (0, -1) : 2, (-1, 0) : 3} 
+
+    def is_flank(def_unit, att_unit):
+        if def_unit.rotation == att_unit.rotation:
+            return True
+        return False
+
+
     def __init__(self, pos, hp, mmove, Att, Def, Team):
         self.pos = pos
         self.hp = hp
@@ -333,9 +361,14 @@ class Unit:
         self.Att = Att
         self.Def = Def
         self.Team = Team
+        if self.Team == 0:
+            self.rotation = Unit.unit_rotations['E']
+        elif self.Team == 1:
+            self.rotation = Unit.unit_rotations['W']
         
     def __str__(self):
         string = "Unit:\n\tpos: {0}\n\tcurr_move: {1}\n\thp: {2}\n".format(self.pos, self.curr_move, self.hp) 
         string +="\ttemp_hp: {0}\n".format(self.temp_hp)
         string += "\tmax_move: {0}\n\tAtt: {1}\n\tDef: {2}\n\tTeam: {3}\n".format(self.max_move, self.Att, self.Def, self.Team)
+        string +="\trotation: {0}\n".format(self.rotation)
         return string

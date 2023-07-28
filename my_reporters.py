@@ -9,13 +9,13 @@ from AI_modules import neat_ai, move_pick_ai, script_performance, neat_performan
 import GameManager
 from GameManager import map_manager, Tile, Unit, Team
 
-def plot_stats(stats_reporter, generation_interval, name, path=""):
+def plot_stats(stats_reporter, generation_intervals, name, path=""):
     plt.plot(stats_reporter.get_fitness_stat(max))
     plt.title("{} Best Fitness vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Best Fitness")
-    for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-        plt.axvline(x=(x * generation_interval), color='k')
+    for x in generation_intervals:
+        plt.axvline(x=x, color='k')
 
     if path != "":
         filepath = path + "{} Best Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
@@ -28,8 +28,8 @@ def plot_stats(stats_reporter, generation_interval, name, path=""):
     plt.title("{} Mean Fitness vs. Generation".format(name))
     plt.xlabel("Generation")
     plt.ylabel("Mean Fitness")
-    for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-        plt.axvline(x=(x * generation_interval), color='k')
+    for x in generation_intervals:
+        plt.axvline(x=x, color='k')
     
     if path != "":
         filepath = path + "{} Mean Fitness vs. Generation".format(name).replace(' ', '-') + '.jpg'
@@ -39,13 +39,11 @@ def plot_stats(stats_reporter, generation_interval, name, path=""):
     plt.show()
 
 
-def plot_eval_performance(eval_reporter, gen_interval, name, path=""):
-    length = len(eval_reporter.eval_performance['script'])
+def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     c = ['b', 'r', 'g', 'c', 'm', 'y']
-    ci = 0
+    ci = 1
     for key, vals in eval_reporter.eval_performance.items():
-        plt.plot(list(range(ci * gen_interval, (ci * gen_interval) + (gen_interval * len(vals)), gen_interval)),
-                vals, color=c[ci % len(c)], label=key)
+        plt.plot(gen_intervals[ci:], vals, color=c[(ci-1) % len(c)], label=key)
         ci += 1
 
     # for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
@@ -64,9 +62,8 @@ def plot_eval_performance(eval_reporter, gen_interval, name, path=""):
 
 
 class plot_reporter(neat.reporting.BaseReporter):
-    def __init__(self, generation_interval, stats_reporter, run_name="", save_file=False,
+    def __init__(self, stats_reporter, run_name="", save_file=False,
                   eval_reporter=None, genome_reporter=None):
-        self.gen_interval = generation_interval
         self.run_name = run_name
         self.filepath = "./plots/{}".format(run_name)
         self.eval_reporter = eval_reporter
@@ -75,17 +72,16 @@ class plot_reporter(neat.reporting.BaseReporter):
         self.gen_reporter = genome_reporter
 
     def post_evaluate(self, config, population, species, best_genome):
-        if ((self.gen_reporter.gen_count % self.gen_interval) == 0 and 
-                self.gen_reporter.gen_count > 0):
+        if (self.gen_reporter.is_interval):
             if self.save:
-                plot_stats(self.stats_reporter, self.gen_interval, self.run_name, "./plots/")
+                plot_stats(self.stats_reporter, self.gen_reporter.gen_intervals, self.run_name, "./plots/")
             else:
-                plot_stats(self.stats_reporter, self.gen_interval, self.run_name)
+                plot_stats(self.stats_reporter, self.gen_reporter.gen_intervals, self.run_name)
             if (self.eval_reporter is not None):
                 if self.save:
-                    plot_eval_performance(self.eval_reporter, self.gen_interval, self.run_name, "./plots/")
+                    plot_eval_performance(self.eval_reporter, self.gen_reporter.gen_intervals, self.run_name, "./plots/")
                 else:
-                    plot_eval_performance(self.eval_reporter, self.gen_interval, self.run_name)
+                    plot_eval_performance(self.eval_reporter, self.gen_reporter.gen_intervals, self.run_name)
 
 class eval_reporter(neat.reporting.BaseReporter):
     def __init__(self, games_run, dimensions, genome_reporter):
@@ -97,8 +93,7 @@ class eval_reporter(neat.reporting.BaseReporter):
         self.genome_reporter = genome_reporter
 
     def post_evaluate(self, config, population, species, best_genome):
-        if (self.genome_reporter.gen_count % self.genome_reporter.gen_interval == 0 and
-            self.genome_reporter.gen_count > 0):
+        if (self.genome_reporter.is_interval and len(self.genome_reporter.gen_intervals) > 1):
             my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
             
             win_rate = script_performance(self.manager, my_net, config)
@@ -119,9 +114,8 @@ class eval_reporter(neat.reporting.BaseReporter):
                 print("Best genome Winrate vs. {} : {}".format(str(i+1), win_rate))
 
 class genome_reporter(neat.reporting.BaseReporter):
-    def __init__(self, generation_interval, run_name, Population):
+    def __init__(self, max_generation_interval, run_name, Population, interval_fitness_threshold):
         self.gen_count = -1
-        self.gen_interval = generation_interval
         self.run_name = run_name
         
         self.best_genome = None     #The best genome in each generation
@@ -129,34 +123,37 @@ class genome_reporter(neat.reporting.BaseReporter):
         self.best_species = None
         self.eval_nets = []
 
+        self.max_gen_interval = max_generation_interval
+        self.int_fit_threshold = interval_fitness_threshold
+        self.gen_intervals = []
         self.Population = Population
-        self.rand_phase = True
+
+        self.is_interval = False
 
     def post_evaluate(self, config, population, species, best_genome):
         self.gen_count += 1
+        self.is_interval = False
         if (self.best_genome is None) or (best_genome.fitness > self.best_genome.fitness):
             #print("New best genome: {}".format(best_genome))
             self.best_genome = best_genome
             self.best_pop = population
             self.best_species = species
 
-        #For random phase, of 10 iterations
-        if (self.gen_count == 10 and self.rand_phase == True):
-            self.gen_count = 0
-            self.rand_phase = False
-
-            self.Population.population = self.best_pop
-            self.Population.species = self.best_species
-
-            self.best_genome = None 
-            self.best_pop = None    
-            self.best_species = None
-
-        if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
-            self.eval_nets.append(neat.nn.FeedForwardNetwork.create(self.best_genome, config))
-            #print(self.eval_nets)
+        if ( self.best_genome.fitness == 1.0 or  #For initial random phase, always want that to reach 100% fitness
+            (self.best_genome.fitness > self.int_fit_threshold and len(self.gen_intervals) != 0) or #For any other phase, reach the fitness threshold
+            self.gen_count == self.max_gen_interval): #If we reach the maximum number of generations in an interval
             
-            #Change population's population to this
+            self.is_interval = True
+            # >0 to ignore the first vs. random iteration 
+            if len(self.gen_intervals) > 0:
+                self.eval_nets.append(neat.nn.FeedForwardNetwork.create(self.best_genome, config))
+            
+            if (len(self.gen_intervals) == 0):
+                self.gen_intervals.append(self.gen_count)
+            else:
+                self.gen_intervals.append(self.gen_count + self.gen_intervals[-1])
+
+            self.gen_count = 0
             self.Population.population = self.best_pop
             self.Population.species = self.best_species
 

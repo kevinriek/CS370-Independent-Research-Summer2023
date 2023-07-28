@@ -195,9 +195,12 @@ def neat_performance(manager, my_net, op_net, config):
     #units_per_side = 5
 
     for i in range(games_run):
+        
         #also resets map
         #manager.setup_rand(units_per_side)
         manager.apply_map_layout(i % len(manager.map_layouts))
+        if (i == 0):
+            print(manager)
         #Alternate which side starts
         if i > len(manager.map_layouts):
             #Note that this makes the turn count end earlier
@@ -209,14 +212,17 @@ def neat_performance(manager, my_net, op_net, config):
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    win_move = neat_ai(manager, unit, my_net)
-                    #win_move = move_pick_ai(manager, unit, my_net)
+                    #win_move = neat_ai(manager, unit, my_net)
+                    win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
-                    win_move = neat_ai(manager, unit, op_net)
+                    #win_move = neat_ai(manager, unit, op_net)
+                    win_move = move_pick_ai(manager, unit, op_net)
                 manager.move_unit(unit, win_move)
 
             #Next Turn
             manager.Turn()
+            if (i == 0):
+                print(manager)
         
         if (manager.game_feedback() == 0):
             wins +=1
@@ -244,8 +250,8 @@ def script_performance(manager, my_net, config):
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    win_move = neat_ai(manager, unit, my_net)
-                    #win_move = move_pick_ai(manager, unit, my_net)
+                    #win_move = neat_ai(manager, unit, my_net)
+                    win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     win_move = script_ai(manager, unit)
                 manager.move_unit(unit, win_move)
