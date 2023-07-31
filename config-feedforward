@@ -49,8 +49,8 @@ node_delete_prob        = 0.2
 
 # network parameters
 num_hidden              = 1
-num_inputs              = 192
-num_outputs             = 64
+num_inputs              = 30
+num_outputs             = 1
 
 # node response options
 response_init_mean      = 1.0
@@ -81,4 +81,4 @@ species_elitism      = 3
 [DefaultReproduction]
 elitism            = 2
 #changed from 0.05
-survival_threshold = 0.2
+survival_threshold = 0.025

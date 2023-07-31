@@ -79,7 +79,9 @@ def neat_ai(map_manager, unit, net):
         if (move.pos == unit.pos):
             pass
         saved_pos = unit.pos    #save unit pos for later
+                                #RESTORE ROTATION!!!!!!
         unit.pos = move.pos
+
 
         if move.is_attack:      #move is of Tile Class
             move_pos = move.move_parent.pos
@@ -146,11 +148,11 @@ def script_ai(map_manager, unit):
     op_units = []
 
     if (map_manager.curr_team == 0): 
-        my_units = map_manager.Teams[0].units
-        op_units = map_manager.Teams[1].units
+        my_units = map_manager.Teams[0].live_units
+        op_units = map_manager.Teams[1].live_units
     elif(map_manager.curr_team == 1):
-        my_units = map_manager.Teams[1].units
-        op_units = map_manager.Teams[0].units
+        my_units = map_manager.Teams[1].live_units
+        op_units = map_manager.Teams[0].live_units
     
     
     win_move = (0, 0)
@@ -169,7 +171,7 @@ def script_ai(map_manager, unit):
         
         for op_unit in op_units:
             #Bonus weight for getting near enemies
-            weight += 3 / (math.dist(op_unit.pos, unit.pos) + 1)
+            weight += 5 / (math.dist(op_unit.pos, unit.pos) + 1)
         
         for my_unit in my_units:
             if my_unit == unit:
@@ -206,23 +208,19 @@ def neat_performance(manager, my_net, op_net, config):
             #Note that this makes the turn count end earlier
             manager.curr_team = 1
 
-
         while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
-
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    #win_move = neat_ai(manager, unit, my_net)
-                    win_move = move_pick_ai(manager, unit, my_net)
+                    win_move = neat_ai(manager, unit, my_net)
+                    #win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
-                    #win_move = neat_ai(manager, unit, op_net)
-                    win_move = move_pick_ai(manager, unit, op_net)
+                    win_move = neat_ai(manager, unit, op_net)
+                    #win_move = move_pick_ai(manager, unit, op_net)
                 manager.move_unit(unit, win_move)
 
             #Next Turn
             manager.Turn()
-            if (i == 0):
-                print(manager)
         
         if (manager.game_feedback() == 0):
             wins +=1
@@ -245,22 +243,25 @@ def script_performance(manager, my_net, config):
             manager.curr_team = 1
 
 
-        while (manager.game_joever() == -1 and manager.turn_count < 8): #Turn Count limit may have to be modified
+        while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
 
             for unit in manager.Teams[manager.curr_team].live_units:
                 win_move = (0, 0)
                 if manager.curr_team == 0:
-                    #win_move = neat_ai(manager, unit, my_net)
-                    win_move = move_pick_ai(manager, unit, my_net)
+                    win_move = neat_ai(manager, unit, my_net)
+                    #win_move = move_pick_ai(manager, unit, my_net)
                 elif manager.curr_team == 1:
                     win_move = script_ai(manager, unit)
                 manager.move_unit(unit, win_move)
 
             #Next Turn
             manager.Turn()
+            #print(manager)
         
         if (manager.game_feedback() == 0):
             wins +=1
+        #print(manager)
+        #print("Result: {}".format(manager.game_feedback()))
 
     winrate = (wins / games_run)
     return winrate

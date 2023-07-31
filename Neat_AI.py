@@ -6,6 +6,7 @@ import visualize
 import random
 import matplotlib.pyplot as plt
 import pickle
+import multiprocessing
 from multiprocessing import Pool
 
 import AI_modules
@@ -18,50 +19,66 @@ import my_reporters
 from my_reporters import *
 
 # Global variables
-thread_count = 8
+thread_count = 16
 dimensions = (8, 8)
 Population = None
 multiprocess_pool = None
-managers = []
+manager = None
 
-def thread_eval(config, op_net, genome, manager, is_rand):
+def thread_eval(config, op_nets, genome, manager, is_rand):
     games_run = len(manager.map_layouts) * 2
     wins = 0
     my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
 
-    for i in range(games_run):
-        manager.apply_map_layout(i % len(manager.map_layouts))
-        
-        #Alternate which side starts
-        if i > len(manager.map_layouts):
-            #Note that this makes the turn count end earlier
-            manager.curr_team = 1
+    for k in range(len(op_nets) + 1):
+        #One sequence is random
+        op_net = None
+        if k != len(op_nets):
+            op_net = op_nets[k]
 
-        while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
-            for unit in manager.Teams[manager.curr_team].live_units:               
-                win_move = (0, 0)
-                if manager.curr_team == 0:
-                    win_move = move_pick_ai(manager, unit, my_net)
-                    #win_move = neat_ai(manager, unit, my_net)
-                elif manager.curr_team == 1:
-                    if op_net is None:
-                        if is_rand:
-                            win_move = rand_ai(manager, unit)
+        games_count = 0
+        for i in range(games_run):
+            #Ensuring even number of games
+            #Skip past this game
+            if i % (len(op_nets)+1) == k:
+                continue
+            games_count += 1
+
+            manager.apply_map_layout(i % len(manager.map_layouts))
+            
+            #Alternate which side starts
+            if i > len(manager.map_layouts):
+                #Note that this makes the turn count end earlier
+                manager.curr_team = 1
+
+            while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
+                for unit in manager.Teams[manager.curr_team].live_units:               
+                    win_move = (0, 0)
+                    if manager.curr_team == 0:
+                        #win_move = move_pick_ai(manager, unit, my_net)
+                        win_move = neat_ai(manager, unit, my_net)
+                    elif manager.curr_team == 1:
+                        if op_net is None:
+                            if is_rand:
+                                win_move = rand_ai(manager, unit)
+                            else:
+                                win_move = script_ai(manager, unit)
                         else:
-                            win_move = script_ai(manager, unit)
-                    else:
-                        #win_move = neat_ai(manager, unit, op_net)
-                        win_move = move_pick_ai(manager, unit, op_net)
-                manager.move_unit(unit, win_move)
-                #print(manager)
-            manager.Turn()
-        
-        #print(manager)
-        #sum += manager.game_feedback()
-        if (manager.game_feedback() == 0):
-            wins +=1
+                            win_move = neat_ai(manager, unit, op_net)
+                            #win_move = move_pick_ai(manager, unit, op_net)
+                    manager.move_unit(unit, win_move)
+                    #print(manager)
+                manager.Turn()
+            
+            #print(manager)
+            #sum += manager.game_feedback()
+            if (manager.game_feedback() == 0):
+                wins +=1
 
+            print('games count vs {}: {}'.format(k, games_count))
+    
     return (wins / games_run)
+
 
 #This is the Eval Func branch
 def eval_genomes(genomes, config):
@@ -69,27 +86,19 @@ def eval_genomes(genomes, config):
     #Self-play
     # Getting best genomes of past x generaations
     global best_genomes_reporter
+    op_nets = best_genomes_reporter.eval_nets
 
-    global op_net
-    op_net = None 
-    if len(best_genomes_reporter.eval_nets) > 0:
-        op_net = best_genomes_reporter.eval_nets[len(best_genomes_reporter.eval_nets)-1]
-
-    global gl_config
-    gl_config = config
-
-    global managers
+    global manager
     input_ls = []
     for genome_id, genome in genomes:
         #(config, op_net, genomes, manager, gen_count):
         #change managers[0]
         if len(best_genomes_reporter.gen_intervals) == 0:
-            input_ls.append((config, op_net, genome, managers[0], True))
+            input_ls.append((config, op_nets, genome, manager, True))
         else:
-            input_ls.append((config, op_net, genome, managers[0], False))
+            input_ls.append((config, op_nets, genome, manager, False))
 
     ret_fitness = multiprocess_pool.starmap(thread_eval, input_ls)
-    #print("Returned fitness: {}".format(ret_fitness))
     #multiprocess_pool.close()
     #multiprocess_pool.join()
 
@@ -98,6 +107,8 @@ def eval_genomes(genomes, config):
         genome.fitness = ret_fitness[index]
         index += 1
 
+    # ret_fitness.sort()
+    # print("Returned fitness: {}".format(ret_fitness))
         
 def run(config_file, run_name):
     
@@ -125,14 +136,14 @@ def run(config_file, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 100
-    int_fit_threshold = 0.95
+    max_gen_interval = 20
+    int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
         run_name=run_name, Population=p, interval_fitness_threshold=int_fit_threshold)
     p.add_reporter(best_genomes_reporter)
 
-    eval = eval_reporter(20, dimensions, best_genomes_reporter)     #40 (20 x 2)games, 8x8
+    eval = eval_reporter(25, dimensions, best_genomes_reporter)     #50 (25 x 2)games, 8x8
     p.add_reporter(eval)    
 
     plot = plot_reporter(stats_reporter=stats, run_name=run_name, save_file=False, eval_reporter=eval,
@@ -142,28 +153,21 @@ def run(config_file, run_name):
     #THIS ENABLES CHECKPOINTS
     #Note: checkpoints currently not working with other reporters in custom my_reporters file
 
-    if not os.path.exists('./checkpoints/{}'.format(run_name)):
-        os.makedirs('./checkpoints/{}'.format(run_name))
-    checkpoint = neat.Checkpointer(generation_interval=25,
-        filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
-    p.add_reporter(checkpoint)
+    # if not os.path.exists('./checkpoints/{}'.format(run_name)):
+    #     os.makedirs('./checkpoints/{}'.format(run_name))
+    # checkpoint = neat.Checkpointer(generation_interval=25,
+    #     filename_prefix='./checkpoints/{}/neat-checkpoint-'.format(run_name))
+    # p.add_reporter(checkpoint)
     #can use restore_checkpoint to resume simulation
 
     # Run for up to *generations* generations.
     generations = 500
 
     #Global manager
-    global managers
-    #root manager
-    root_manager = map_manager(dimensions)
-    root_manager.setup_layouts_rand(layout_n=20, unit_count=5)
+    global manager
+    manager = map_manager(dimensions)
+    manager.setup_layouts_rand(layout_n=20, unit_count=5)
 
-    #set up each thread with a unique manager that has a copy of the same map layouts
-    for i in range(thread_count):
-        thread_manager = map_manager(dimensions)
-        thread_manager.copy_setup(root_manager)
-        managers.append(thread_manager)
-        
     winner = p.run(eval_genomes, generations)
 
     # Display the winning genome.

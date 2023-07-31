@@ -43,7 +43,8 @@ def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     c = ['b', 'r', 'g', 'c', 'm', 'y']
     ci = 1
     for key, vals in eval_reporter.eval_performance.items():
-        plt.plot(gen_intervals[ci:], vals, color=c[(ci-1) % len(c)], label=key)
+        #plt.plot(gen_intervals[ci:], vals, color=c[(ci-1) % len(c)], label=key)
+        plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
         ci += 1
 
     # for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
@@ -93,25 +94,25 @@ class eval_reporter(neat.reporting.BaseReporter):
         self.genome_reporter = genome_reporter
 
     def post_evaluate(self, config, population, species, best_genome):
-        if (self.genome_reporter.is_interval and len(self.genome_reporter.gen_intervals) > 1):
-            my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
-            
-            win_rate = script_performance(self.manager, my_net, config)
-            if 'script' in self.eval_performance:
-                self.eval_performance['script'].append(win_rate)
-            else:
-                self.eval_performance['script'] = [win_rate]
-            print("Best genome Winrate vs. {} : {}".format('script', win_rate))
-            
-            for i in range(len(self.genome_reporter.eval_nets)-1):
-                op_net = self.genome_reporter.eval_nets[i]
+        #if (self.genome_reporter.is_interval and len(self.genome_reporter.gen_intervals) > 1):
+        my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
+        
+        win_rate = script_performance(self.manager, my_net, config)
+        if 'script' in self.eval_performance:
+            self.eval_performance['script'].append(win_rate)
+        else:
+            self.eval_performance['script'] = [win_rate]
+        print("Best genome Winrate vs. {} : {}".format('script', win_rate))
+        
+        for i in range(len(self.genome_reporter.eval_nets)-1):
+            op_net = self.genome_reporter.eval_nets[i]
 
-                win_rate = neat_performance(self.manager, my_net, op_net, config)
-                if str(i + 1) not in self.eval_performance:
-                    self.eval_performance[str(i+1)] = [win_rate]
-                else:
-                    self.eval_performance[str(i+1)].append(win_rate)
-                print("Best genome Winrate vs. {} : {}".format(str(i+1), win_rate))
+            win_rate = neat_performance(self.manager, my_net, op_net, config)
+            if str(i + 1) not in self.eval_performance:
+                self.eval_performance[str(i+1)] = [win_rate]
+            else:
+                self.eval_performance[str(i+1)].append(win_rate)
+            print("Best genome Winrate vs. {} : {}".format(str(i+1), win_rate))
 
 class genome_reporter(neat.reporting.BaseReporter):
     def __init__(self, max_generation_interval, run_name, Population, interval_fitness_threshold):

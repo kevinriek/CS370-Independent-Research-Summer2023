@@ -94,6 +94,7 @@ class map_manager:
                     
         
     def place_unit(self, pos, team):
+        #Movement is currently 4
         new_unit = Unit(pos=pos, hp=100, mmove=3, Att=20, Def=10, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
@@ -120,6 +121,8 @@ class map_manager:
         
     
     def move_unit(self, unit, pos):
+        if pos[0] < 0 or pos[1] < 0:
+            assert(False)
         #move_pos = tuple(np.add(unit.pos, dir))
         if pos == unit.pos:
             return
@@ -155,11 +158,11 @@ class map_manager:
         
     def sim_combat(self, att_unit, def_unit):
         dmg_mod = 1
-        if Unit.is_flank(def_unit, att_unit):
-            dmg_mod = 3
+        # if Unit.is_flank(def_unit, att_unit):
+        #     dmg_mod = 3
         
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 20 * dmg_mod
+        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
 
         def_unit.temp_hp = def_unit.hp - def_dmg
         if (def_unit.temp_hp <= 0):
@@ -171,12 +174,11 @@ class map_manager:
 
     def combat(self, att_unit, def_unit):
         dmg_mod = 1
-        if Unit.is_flank(def_unit, att_unit):
-            dmg_mod = 3
+        # if Unit.is_flank(def_unit, att_unit):
+        #     dmg_mod = 3
 
         #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 20 * dmg_mod
-        print("damage: {}".format(def_dmg))
+        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
         #att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
         def_unit.temp_hp = def_unit.hp
@@ -234,49 +236,6 @@ class map_manager:
         self.layout_unit_count = other_manager.layout_unit_count 
         self.map_layouts = copy.deepcopy(other_manager.map_layouts)
 
-    def setup_rand(self, unit_count):
-        dimensions = self.Map.shape
-        self.reset_map()
-        
-        pos_ls = []
-        for i in range(unit_count):
-            pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
-                            round(random.uniform(0, dimensions[1]/7))))
-        for i in range(unit_count):
-            pos_ls.append((round(random.uniform((dimensions[0]/unit_count)*i, (dimensions[1]/unit_count)*(i+1)-1)),
-                            round(random.uniform(dimensions[1]-(1+dimensions[1]/7), dimensions[1]-1))))
-
-        team1 = 0
-        team2 = 1
-
-        for i in range(unit_count):
-            self.place_unit(pos_ls[i], team1)
-        for i in range(unit_count):
-            self.place_unit(pos_ls[unit_count+i], team2)   
-        
-
-    def setup_even(self, unit_count):
-        dimensions = self.Map.shape
-        pos_pick = random.randint(0, 1)
-        pos_list = []
-
-        start_offset = (dimensions[0] - unit_count) // 2
-        for i in range(unit_count):
-            pos_list.append((i+start_offset, 0))
-        for i in range(unit_count):
-            pos_list.append((i+start_offset, dimensions[1]-1))
-
-        self.reset_map()
-        if pos_pick == 0:
-            for i in range(unit_count):
-                self.place_unit(pos_list[i], 0)
-            for i in range(unit_count, unit_count*2):
-                self.place_unit(pos_list[i], 1)
-        else:
-            for i in range(unit_count):
-                self.place_unit(pos_list[i], 1)
-            for i in range(unit_count, unit_count*2):
-                self.place_unit(pos_list[i], 0)
 
     def game_joever(self):
         if len(self.Teams[0].live_units) == 0:
@@ -298,7 +257,7 @@ class map_manager:
         #     return 0
         # if len(self.Teams[1].live_units) > len(self.Teams[0].live_units):
         #     return 1
-        # return -1
+        #return -1
 
         #Units difference
         #return len(self.Teams[0].live_units) - len(self.Teams[1].live_units)
