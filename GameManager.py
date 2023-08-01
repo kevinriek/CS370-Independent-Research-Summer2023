@@ -158,15 +158,19 @@ class map_manager:
         
     def sim_combat(self, att_unit, def_unit):
         dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        if Unit.is_flank(def_unit, att_unit):
+            dmg_mod = 3
         
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
+        att_dmg = (def_unit.Def / att_unit.Att) * 20
         def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
-
+        
+        att_unit.temp_hp = att_unit.hp - att_dmg
         def_unit.temp_hp = def_unit.hp - def_dmg
+        
         if (def_unit.temp_hp <= 0):
             def_unit.temp_hp = 0
+        if (att_unit.temp_hp <= 0):
+            att_unit.temp_hp = 0
 
     def reset_temp_hp(self):
         for unit in self.Units:
@@ -174,14 +178,17 @@ class map_manager:
 
     def combat(self, att_unit, def_unit):
         dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        if Unit.is_flank(def_unit, att_unit):
+            dmg_mod = 3
 
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
+        att_dmg = (def_unit.Def / att_unit.Att) * 20
         def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
-        #att_unit.hp -= att_dmg
+
+        att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
+
         def_unit.temp_hp = def_unit.hp
+        att_unit.temp_hp = att_unit.hp
 
         if (def_unit.hp <= 0):
             def_unit.hp = 0
@@ -191,6 +198,13 @@ class map_manager:
             self.Teams[def_unit.Team].live_units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
             #del def_unit
+
+        if (att_unit.hp <= 0):
+            att_unit.hp = 0
+            att_unit.temp_hp = att_unit.hp
+            
+            self.Teams[att_unit.Team].live_units.remove(att_unit)
+            self.Map[att_unit.pos].unit_ref = None
     
 
     def Turn(self):

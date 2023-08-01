@@ -41,7 +41,7 @@ def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     ci = 0
     for key, vals in eval_reporter.eval_performance.items():
         x_vals = []
-        if ci == 0:
+        if ci == 0 or ci >= len(gen_intervals):
             x_vals = list(range(len(vals)))
         else:
             x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
@@ -118,14 +118,10 @@ class eval_reporter(neat.reporting.BaseReporter):
             print("Best genome Winrate vs. {} : {}".format(str(i+1), win_rate))
 
 class genome_reporter(neat.reporting.BaseReporter):
-    def __init__(self, max_generation_interval, run_name, Population, interval_fitness_threshold):
+    def __init__(self, max_generation_interval, run_name, Population, interval_fitness_threshold, networks_list):
         self.gen_count = -1
         self.run_name = run_name
-        
-        self.best_genome = None     #The best genome in each generation
-        self.best_pop = None        #The population (dict, not class) with the best genome so far
-        self.best_species = None
-        self.eval_nets = []
+        self.eval_nets = networks_list
 
         self.max_gen_interval = max_generation_interval
         self.int_fit_threshold = interval_fitness_threshold
@@ -137,17 +133,13 @@ class genome_reporter(neat.reporting.BaseReporter):
     def post_evaluate(self, config, population, species, best_genome):
         self.gen_count += 1
         self.is_interval = False
-        if (self.best_genome is None) or (best_genome.fitness > self.best_genome.fitness):
-            #print("New best genome: {}".format(best_genome))
-            self.best_genome = best_genome
-            self.best_pop = population
-            self.best_species = species
 
-        if ( self.best_genome.fitness == 1.0 or  #For initial random phase, always want that to reach 100% fitness
-            (self.best_genome.fitness > self.int_fit_threshold and len(self.gen_intervals) != 0) or #For any other phase, reach the fitness threshold
+        if ( best_genome.fitness == 1.0 or  #For initial random phase, always want that to reach 100% fitness
+            (best_genome.fitness > self.int_fit_threshold and len(self.gen_intervals) != 0) or #For any other phase, reach the fitness threshold
             self.gen_count == self.max_gen_interval): #If we reach the maximum number of generations in an interval
             
             self.is_interval = True
+
             # >0 to ignore the first vs. random iteration 
             if len(self.gen_intervals) > 0:
                 self.eval_nets.append(neat.nn.FeedForwardNetwork.create(self.best_genome, config))
@@ -158,12 +150,6 @@ class genome_reporter(neat.reporting.BaseReporter):
                 self.gen_intervals.append(self.gen_count + self.gen_intervals[-1])
 
             self.gen_count = 0
-            self.Population.population = self.best_pop
-            self.Population.species = self.best_species
-
-            self.best_genome = None 
-            self.best_pop = None    
-            self.best_species = None
 
         # if ((self.gen_count % self.gen_interval) == 0 and self.gen_count > 0):
         #     best_genome.write_config('./best/{}-config'.format(self.run_name), config)

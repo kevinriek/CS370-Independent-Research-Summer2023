@@ -108,7 +108,7 @@ def eval_genomes(genomes, config):
     # ret_fitness.sort()
     # print("Returned fitness: {}".format(ret_fitness))
         
-def run(config_file, run_name):
+def run(config_file, best_networks_list, run_name):
     
     run_name = run_name.replace(' ', '-')
     if os.path.exists('./best/{}-genome'.format(run_name)):
@@ -134,11 +134,12 @@ def run(config_file, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 5
+    max_gen_interval = 20
     int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
-        run_name=run_name, Population=p, interval_fitness_threshold=int_fit_threshold)
+        run_name=run_name, Population=p, interval_fitness_threshold=int_fit_threshold,
+        networks_list=best_networks_list)
     p.add_reporter(best_genomes_reporter)
 
     eval = eval_reporter(50, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games, 8x8

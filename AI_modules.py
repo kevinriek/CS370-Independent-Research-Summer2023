@@ -79,12 +79,12 @@ def neat_ai(map_manager, unit, net):
         if (move.pos == unit.pos):
             pass
         saved_pos = unit.pos    #save unit pos for later
-                                #RESTORE ROTATION!!!!!!
-        unit.pos = move.pos
+        saved_rot = unit.rotation
 
+        unit.pos = move.pos
+        unit.rotation = move.rotation
 
         if move.is_attack:      #move is of Tile Class
-            move_pos = move.move_parent.pos
             map_manager.sim_combat(unit, move.unit_ref) 
 
         index = 0
@@ -123,12 +123,12 @@ def neat_ai(map_manager, unit, net):
         #print("move: " + str(move.pos))
 
         input_tup = tuple(input_list)
-        format_in = [ '%.2f' % elem for elem in input_tup ]
+        #format_in = [ '%.2f' % elem for elem in input_tup ]
         #print("input vector: " + str(format_in))
         
         output = net.activate(input_tup)
         
-        format_out = [ '%.2f' % elem for elem in output ]
+        #format_out = [ '%.2f' % elem for elem in output ]
         #print("output vector: " + str(format_out))
 
         #print(len(output[0]))
@@ -139,6 +139,7 @@ def neat_ai(map_manager, unit, net):
             win_weight = output[0]
 
         unit.pos = saved_pos    #revert back to saved pos
+        unit.rotation = saved_rot
 
     return win_move
 
@@ -164,7 +165,7 @@ def script_ai(map_manager, unit):
         unit.pos = move.pos
         
         if move.is_attack:      #move is of Tile Class
-            move_pos = move.move_parent.pos
+            #move_pos = move.move_parent.pos
             map_manager.sim_combat(unit, move.unit_ref) 
             #High weight for all attacks
             weight += 25
@@ -190,6 +191,10 @@ def script_ai(map_manager, unit):
         unit.pos = saved_pos    #revert back to saved pos
     
     return win_move    #Tuple
+
+def minimax_ai(map_manager, unit, net, k):
+    pass
+
 
 def sim_game(manager, setup_index, zero_first, my_net, op_net):
     win = 0

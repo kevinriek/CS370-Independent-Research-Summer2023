@@ -81,4 +81,4 @@ species_elitism      = 3
 [DefaultReproduction]
 elitism            = 2
 #changed from 0.05
-survival_threshold = 0.025
+survival_threshold = 0.05
