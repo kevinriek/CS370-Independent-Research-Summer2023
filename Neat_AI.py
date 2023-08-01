@@ -19,7 +19,7 @@ import my_reporters
 from my_reporters import *
 
 # Global variables
-thread_count = 16
+thread_count = 12
 dimensions = (8, 8)
 Population = None
 multiprocess_pool = None
@@ -36,13 +36,11 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
         if k != len(op_nets):
             op_net = op_nets[k]
 
-        games_count = 0
         for i in range(games_run):
             #Ensuring even number of games
             #Skip past this game
-            if i % (len(op_nets)+1) == k:
+            if i % (len(op_nets)+1) != k:
                 continue
-            games_count += 1
 
             manager.apply_map_layout(i % len(manager.map_layouts))
             
@@ -75,7 +73,7 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
             if (manager.game_feedback() == 0):
                 wins +=1
 
-            print('games count vs {}: {}'.format(k, games_count))
+        #print('games count vs {}: {}'.format(k, games_count))
     
     return (wins / games_run)
 
@@ -136,14 +134,14 @@ def run(config_file, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 20
+    max_gen_interval = 5
     int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
         run_name=run_name, Population=p, interval_fitness_threshold=int_fit_threshold)
     p.add_reporter(best_genomes_reporter)
 
-    eval = eval_reporter(25, dimensions, best_genomes_reporter)     #50 (25 x 2)games, 8x8
+    eval = eval_reporter(50, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games, 8x8
     p.add_reporter(eval)    
 
     plot = plot_reporter(stats_reporter=stats, run_name=run_name, save_file=False, eval_reporter=eval,
@@ -166,7 +164,7 @@ def run(config_file, run_name):
     #Global manager
     global manager
     manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=20, unit_count=5)
+    manager.setup_layouts_rand(layout_n=25, unit_count=5)
 
     winner = p.run(eval_genomes, generations)
 
@@ -186,6 +184,7 @@ def run(config_file, run_name):
         f.close()
 
     multiprocess_pool.terminate()
+    eval.pool.terminate()
 
     return winner_net, winner, stats
 

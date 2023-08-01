@@ -1,13 +1,10 @@
 import matplotlib.pyplot as plt
 import os
 import neat
+from multiprocessing import Pool
 
-import AI_modules
-from AI_modules import no_ai, rand_ai, script_ai
-from AI_modules import neat_ai, move_pick_ai, script_performance, neat_performance 
-
-import GameManager
-from GameManager import map_manager, Tile, Unit, Team
+from AI_modules import *
+from GameManager import *
 
 def plot_stats(stats_reporter, generation_intervals, name, path=""):
     plt.plot(stats_reporter.get_fitness_stat(max))
@@ -41,14 +38,19 @@ def plot_stats(stats_reporter, generation_intervals, name, path=""):
 
 def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     c = ['b', 'r', 'g', 'c', 'm', 'y']
-    ci = 1
+    ci = 0
     for key, vals in eval_reporter.eval_performance.items():
-        #plt.plot(gen_intervals[ci:], vals, color=c[(ci-1) % len(c)], label=key)
-        plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
+        x_vals = []
+        if ci == 0:
+            x_vals = list(range(len(vals)))
+        else:
+            x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
+        plt.plot(x_vals, vals, color=c[(ci) % len(c)], label=key)
+        #plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
         ci += 1
 
-    # for x in range(1, len(stats_reporter.get_fitness_stat(max)) // generation_interval):
-    #     plt.axvline(x=(x * generation_interval), color='k')
+    for x in gen_intervals:
+        plt.axvline(x=x, color='k')
     
     plt.title("{} Best Genome Winrate vs. Generation".format(name))
     plt.xlabel("Generation")
@@ -85,29 +87,30 @@ class plot_reporter(neat.reporting.BaseReporter):
                     plot_eval_performance(self.eval_reporter, self.gen_reporter.gen_intervals, self.run_name)
 
 class eval_reporter(neat.reporting.BaseReporter):
-    def __init__(self, games_run, dimensions, genome_reporter):
+    def __init__(self, games_run, dimensions, genome_reporter, thread_count):
         self.games = games_run
         self.manager = map_manager(dimensions)
         self.manager.setup_layouts_rand(layout_n=games_run, unit_count=5)
         
         self.eval_performance = {}
         self.genome_reporter = genome_reporter
+        self.pool = Pool(thread_count)
 
     def post_evaluate(self, config, population, species, best_genome):
         #if (self.genome_reporter.is_interval and len(self.genome_reporter.gen_intervals) > 1):
         my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
         
-        win_rate = script_performance(self.manager, my_net, config)
+        win_rate = eval_performance(self.pool, self.manager, my_net, None)
         if 'script' in self.eval_performance:
             self.eval_performance['script'].append(win_rate)
         else:
             self.eval_performance['script'] = [win_rate]
         print("Best genome Winrate vs. {} : {}".format('script', win_rate))
         
-        for i in range(len(self.genome_reporter.eval_nets)-1):
+        for i in range(len(self.genome_reporter.eval_nets)):
             op_net = self.genome_reporter.eval_nets[i]
 
-            win_rate = neat_performance(self.manager, my_net, op_net, config)
+            win_rate = eval_performance(self.pool, self.manager, my_net, op_net)
             if str(i + 1) not in self.eval_performance:
                 self.eval_performance[str(i+1)] = [win_rate]
             else:
