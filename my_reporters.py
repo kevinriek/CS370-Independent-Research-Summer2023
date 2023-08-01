@@ -142,7 +142,7 @@ class genome_reporter(neat.reporting.BaseReporter):
 
             # >0 to ignore the first vs. random iteration 
             if len(self.gen_intervals) > 0:
-                self.eval_nets.append(neat.nn.FeedForwardNetwork.create(self.best_genome, config))
+                self.eval_nets.append(neat.nn.FeedForwardNetwork.create(best_genome, config))
             
             if (len(self.gen_intervals) == 0):
                 self.gen_intervals.append(self.gen_count)

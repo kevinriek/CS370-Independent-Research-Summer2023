@@ -4,8 +4,13 @@ import queue
 import os
 import random
 import copy
+from colorama import Fore, Back, Style 
 
 class map_manager:
+    forest_list = [(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 2), (2, 3), (2, 4),
+                   (11, 10), (11, 9), (11, 8), (10, 10), (10, 9), (10, 8), (12, 10), (12, 9), (12, 8)]
+    hills_list = [(7, 2), (8, 2), (9, 2), (3, 10), (4, 10), (5, 10), (5, 6), (6, 6), (7, 6)]
+    
     def __init__(self, dimensions):
         self.Map = self.map_init(dimensions)
         self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
@@ -32,7 +37,12 @@ class map_manager:
         Map = np.empty([dimensions[0], dimensions[1]], dtype=Tile)
         for i in range(Map.shape[0]):
             for j in range(Map.shape[1]):
-                Map[i,j] = Tile((i, j), None)
+                terrain_name = 'Plains'
+                if (i, j) in map_manager.forest_list:
+                    terrain_name = 'Forest'
+                if (i, j) in map_manager.hills_list:
+                    terrain_name = 'Hills'
+                Map[i,j] = Tile((i, j), None, terrain_name)
         return Map
 
     def reset_map(self):
@@ -79,17 +89,37 @@ class map_manager:
                     pass
                 else:
                     new_cost = Map[new_pos].tile_cost + curr_tile.move_cost
-                    if (Map[new_pos].move_cost > new_cost and new_cost <= unit.max_move):
+                    att_range = unit.range
+                    #Prevent negative range. NOTE: melee range is 0, not 1
+                    #Range bonus only applies if unit is ranged
+                    if unit.range > 0:
+                        if Map[unit.pos].terrain.range_mod + att_range > 0:
+                            att_range += Map[unit.pos].terrain.range_mod
+                        else:
+                            att_range = 0
+
+                    if (Map[new_pos].move_cost > new_cost and new_cost <= (unit.max_move + att_range)):
                         Map[new_pos].move_cost = new_cost
                         Map[new_pos].move_parent = curr_tile
                         Map[new_pos].rotation = Unit.move_to_rotation[self.directions[i]]
+
                         if (Map[new_pos].unit_ref is not None):
+                            if unit.range > 0:
+                                parent = curr_tile
+                                for i in range(att_range + 1):
+                                    if parent.move_parent is not None:
+                                        parent = parent.move_parent
+                                    else:
+                                        break
+                                Map[new_pos].move_parent = parent
                             Map[new_pos].is_attack = True
                             Map[new_pos].visited = True
+                            self.visited_tiles.append(Map[new_pos])
                         else:
                             #Should prevent movement through opponents
                             prio_queue.put(Map[new_pos])
-                        self.visited_tiles.append(Map[new_pos])
+                            if (new_cost <= unit.max_move):
+                                self.visited_tiles.append(Map[new_pos])
                         
                     
         
@@ -156,54 +186,62 @@ class map_manager:
         
         
     def sim_combat(self, att_unit, def_unit):
-        dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        att = att_unit.Att
+        if Unit.is_flank(def_unit, att_unit):
+            att *= 3
+
+        defs = def_unit.Def
+        defs *= self.Map[def_unit.pos].terrain.def_mod
+
+        att_dmg = (defs / att) * 20
+        def_dmg = (att / defs) * 25
         
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
-        
-        #att_unit.temp_hp = att_unit.hp - att_dmg
+        att_unit.temp_hp = att_unit.hp - att_dmg
         def_unit.temp_hp = def_unit.hp - def_dmg
 
         if (def_unit.temp_hp <= 0):
             def_unit.temp_hp = 0
-        #if (att_unit.temp_hp <= 0):
-        #    att_unit.temp_hp = 0
+        if (att_unit.temp_hp <= 0):
+           att_unit.temp_hp = 0
 
     def reset_temp_hp(self):
         for unit in self.Units:
             unit.temp_hp = unit.hp
 
     def combat(self, att_unit, def_unit):
-        dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        att = att_unit.Att
+        if Unit.is_flank(def_unit, att_unit):
+            att *= 3
 
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
+        defs = def_unit.Def
+        defs *= self.Map[def_unit.pos].terrain.def_mod
 
-        #att_unit.hp -= att_dmg
+        print("Attack: {}".format(att))
+        print("Defense: {}".format(defs))
+
+        att_dmg = (defs / att) * 20
+        def_dmg = (att / defs) * 25
+
+        att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
 
         def_unit.temp_hp = def_unit.hp
-        #att_unit.temp_hp = att_unit.hp
+        att_unit.temp_hp = att_unit.hp
 
         if (def_unit.hp <= 0):
             def_unit.hp = 0
             def_unit.temp_hp = def_unit.hp
             
-            #self.Units.remove(def_unit)   #don't remove from all units, this messes up inputs
             self.Teams[def_unit.Team].live_units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
             #del def_unit
 
-        # if (att_unit.hp <= 0):
-        #     att_unit.hp = 0
-        #     att_unit.temp_hp = att_unit.hp
+        if (att_unit.hp <= 0):
+            att_unit.hp = 0
+            att_unit.temp_hp = att_unit.hp
             
-        #     self.Teams[att_unit.Team].live_units.remove(att_unit)
-        #     self.Map[att_unit.pos].unit_ref = None
+            self.Teams[att_unit.Team].live_units.remove(att_unit)
+            self.Map[att_unit.pos].unit_ref = None
     
 
     def Turn(self):
@@ -275,25 +313,46 @@ class map_manager:
         #Units difference
         #return len(self.Teams[0].live_units) - len(self.Teams[1].live_units)
     
-class Tile:
-    def __init__(self, pos, unit):
+class Tile:    
+    class Terrain:
+        def __init__(self, name, range_mod, def_mod, tile_cost):
+            self.name = name
+            self.range_mod = range_mod
+            self.def_mod = def_mod
+            self.tile_cost = tile_cost
+
+    terrain_types = {
+        'Plains': Terrain('Plains', 0, 1.0, 1),
+        'Hills': Terrain('Hills', 1, 2.0, 2),
+        'Forest': Terrain('Forest', -2, 0.5, 3), 
+    }
+
+    def __init__(self, pos, unit, terrain_name):
         self.pos = pos
         self.unit_ref = unit
-        self.tile_cost = 1.0 #Cost to move onto this tile
+        self.terrain = Tile.terrain_types[terrain_name]
+        #Cost to move onto this tile
+        self.tile_cost = self.terrain.tile_cost
 
         self.rotation = -1
+        #Cost of TOTAL path to this tile
         self.move_cost = float('inf')
         self.move_parent = None
         self.visited = False
         self.is_attack = False
 
     def __str__(self):
+        string = ''
         if (self.visited):
-            string = '\033[94m' #Blue
-            endstring = '\033[0m'
-        else:
-            string = ''
-            endstring = ''
+            if self.is_attack:
+                string += Back.RED
+            else:
+                string += Back.BLUE
+        if (self.terrain.name == 'Hills'):
+            string += Fore.YELLOW
+        if (self.terrain.name == 'Forest'):
+            string += Fore.GREEN
+        endstring = Style.RESET_ALL
         if (self.unit_ref == None):
             return string + "[ ]" + endstring
         else:
@@ -329,6 +388,7 @@ class Unit:
         
         self.max_move = mmove
         self.curr_move = mmove
+        self.range = 1  #Default melee range is 0
 
         self.Att = Att
         self.Def = Def

@@ -97,10 +97,11 @@ def neat_ai(map_manager, unit, net):
             c_unit = my_units[i]
             # if c_unit == unit:  #Input for selected unit entered at beginning
             #     continue
-            input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
             if map_manager.curr_team == 1:
+                input_list[index] = 1 - (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
                 input_list[index+1] = 1 - (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             else:
+                input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
                 input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
             index += 3

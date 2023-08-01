@@ -134,7 +134,7 @@ def run(config_file, best_networks_list, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 20
+    max_gen_interval = 50
     int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
