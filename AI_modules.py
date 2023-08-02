@@ -104,6 +104,11 @@ def neat_ai(map_manager, unit, net):
                 input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
                 input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
+            #input_list[index+3] = (c_unit.Att / 100.0)
+            #input_list[index+4] = (c_unit.Def / 100.0)
+            #input_list[index+5] = (c_unit.max_move / 100.0)
+            #input_list[index+6] = (c_unit.range / 100.0)
+            #index += 7
             index += 3
 
         #Opponent pieces input

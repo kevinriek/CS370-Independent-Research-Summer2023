@@ -123,9 +123,8 @@ class map_manager:
                         
                     
         
-    def place_unit(self, pos, team):
-        #Movement is currently 4
-        new_unit = Unit(pos=pos, hp=100, mmove=3, Att=20, Def=10, Team=team)
+    def place_unit(self, pos, unit_type, team):
+        new_unit = Unit(pos=pos, unit_type=unit_type, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -216,8 +215,8 @@ class map_manager:
         defs = def_unit.Def
         defs *= self.Map[def_unit.pos].terrain.def_mod
 
-        print("Attack: {}".format(att))
-        print("Defense: {}".format(defs))
+        # print("Attack: {}".format(att))
+        # print("Defense: {}".format(defs))
 
         att_dmg = (defs / att) * 20
         def_dmg = (att / defs) * 25
@@ -278,9 +277,21 @@ class map_manager:
         layout = self.map_layouts[i]
 
         for i in range(self.layout_unit_count):
-            self.place_unit(layout[i], 0)
+            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+                unit_type = 'cavalry'
+            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+                unit_type = 'archer'
+            else:
+                unit_type = 'infantry'
+            self.place_unit(layout[i], unit_type, 0)
         for i in range(self.layout_unit_count):
-            self.place_unit(layout[self.layout_unit_count+i], 1)  
+            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+                unit_type = 'cavalry'
+            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+                unit_type = 'archer'
+            else:
+                unit_type = 'infantry'
+            self.place_unit(layout[self.layout_unit_count+i], unit_type, 1)  
 
     def copy_setup(self, other_manager):
         self.dimensions = other_manager.Map.shape
@@ -356,7 +367,7 @@ class Tile:
         if (self.unit_ref == None):
             return string + "[ ]" + endstring
         else:
-            return string + "[{}]".format(self.unit_ref.Team) + endstring
+            return string + "[{}]".format(self.unit_ref.map_char) + endstring
         
     def __lt__(self, other):
         return self.move_cost < other.move_cost
@@ -375,32 +386,42 @@ class Unit:
     #Note: positive 1 in y direction == going downwards
     move_to_rotation = {(0, 1) : 0, (1, 0) : 1, (0, -1) : 2, (-1, 0) : 3} 
 
+    #Default melee range is 0
+    unit_types = {
+        'archer':{'att':20, 'defs':5, 'range':2, 'move':2, 'char':'a'},
+        'infantry':{'att':20, 'defs':10, 'range':0, 'move':2, 'char':'i'},
+        'cavalry':{'att':30, 'defs':5, 'range':0, 'move':4, 'char':'c'}
+    }
+
     def is_flank(def_unit, att_unit):
         if def_unit.rotation == att_unit.rotation:
             return True
         return False
 
 
-    def __init__(self, pos, hp, mmove, Att, Def, Team):
+    def __init__(self, pos, unit_type, Team):
         self.pos = pos
-        self.hp = hp
-        self.temp_hp = hp
+        self.hp = 100
+        self.temp_hp = self.hp
+        self.type = unit_type
         
-        self.max_move = mmove
-        self.curr_move = mmove
-        self.range = 1  #Default melee range is 0
+        self.max_move = Unit.unit_types[self.type]['move']
+        self.curr_move = self.max_move
+        self.range = Unit.unit_types[self.type]['range'] 
+        self.Att = Unit.unit_types[self.type]['att'] 
+        self.Def = Unit.unit_types[self.type]['defs'] 
+        self.map_char = Unit.unit_types[self.type]['char']
 
-        self.Att = Att
-        self.Def = Def
         self.Team = Team
         if self.Team == 0:
             self.rotation = Unit.unit_rotations['E']
         elif self.Team == 1:
+            self.map_char = self.map_char.upper()
             self.rotation = Unit.unit_rotations['W']
         
     def __str__(self):
         string = "Unit:\n\tpos: {0}\n\tcurr_move: {1}\n\thp: {2}\n".format(self.pos, self.curr_move, self.hp) 
-        string +="\ttemp_hp: {0}\n".format(self.temp_hp)
+        string +="\ttemp_hp: {0}\n\tType: {1}\n".format(self.temp_hp, self.type)
         string += "\tmax_move: {0}\n\tAtt: {1}\n\tDef: {2}\n\tTeam: {3}\n".format(self.max_move, self.Att, self.Def, self.Team)
         string +="\trotation: {0}\n".format(self.rotation)
         return string
