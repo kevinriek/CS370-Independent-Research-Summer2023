@@ -90,7 +90,7 @@ class eval_reporter(neat.reporting.BaseReporter):
     def __init__(self, games_run, dimensions, genome_reporter, thread_count):
         self.games = games_run
         self.manager = map_manager(dimensions)
-        self.manager.setup_layouts_rand(layout_n=games_run, unit_count=5)
+        self.manager.setup_layouts_rand(layout_n=games_run, unit_count=11)
         
         self.eval_performance = {}
         self.genome_reporter = genome_reporter

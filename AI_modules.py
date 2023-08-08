@@ -70,14 +70,15 @@ def neat_ai(map_manager, unit, net):
         op_units = map_manager.Teams[0].units
     
     move_list = map_manager.find_movement(unit)
-    input_list = list(np.zeros((30)))
+    input_list = list(np.zeros((154)))
 
     win_move = (0, 0)
     win_weight = -float("inf")
     for move in move_list:
-        #Cannot stay in the same spot: avoid getting trapped in a 'hole'
-        if (move.pos == unit.pos):
-            pass
+        # Remove this 
+        # #Cannot stay in the same spot: avoid getting trapped in a 'hole'
+        # if (move.pos == unit.pos):
+        #     pass
         saved_pos = unit.pos    #save unit pos for later
         saved_rot = unit.rotation
 
@@ -104,12 +105,13 @@ def neat_ai(map_manager, unit, net):
                 input_list[index] = (c_unit.pos[0])/(map_manager.Map.shape[0]-1)
                 input_list[index+1] = (c_unit.pos[1])/(map_manager.Map.shape[1]-1)
             input_list[index+2] = (c_unit.temp_hp / 100.0)
-            #input_list[index+3] = (c_unit.Att / 100.0)
-            #input_list[index+4] = (c_unit.Def / 100.0)
-            #input_list[index+5] = (c_unit.max_move / 100.0)
-            #input_list[index+6] = (c_unit.range / 100.0)
-            #index += 7
-            index += 3
+
+            tile = map_manager.Map[c_unit.pos]
+            input_list[index+3] = (c_unit.Att / 100.0)
+            input_list[index+4] = (c_unit.Def * tile.terrain.def_mod / 100.0)
+            input_list[index+5] = (c_unit.max_move / 100.0)
+            input_list[index+6] = (c_unit.range * tile.terrain.range_mod / 100.0)
+            index += 7
 
         #Opponent pieces input
         for i in range(len(op_units)):
@@ -149,6 +151,49 @@ def neat_ai(map_manager, unit, net):
 
     return win_move
 
+def simple_script_ai(map_manager, unit):
+    move_list = map_manager.find_movement(unit)
+    my_units = []
+    op_units = []
+
+    if (map_manager.curr_team == 0): 
+        my_units = map_manager.Teams[0].live_units
+        op_units = map_manager.Teams[1].live_units
+    elif(map_manager.curr_team == 1):
+        my_units = map_manager.Teams[1].live_units
+        op_units = map_manager.Teams[0].live_units
+    
+    
+    win_move = (0, 0)
+    weights = {}
+    
+    for move in move_list:
+        weight = 0.0
+        saved_pos = unit.pos    #save unit pos for later
+        unit.pos = move.pos
+        
+        if move.is_attack:      #move is of Tile Class
+            #move_pos = move.move_parent.pos
+            map_manager.sim_combat(unit, move.unit_ref) 
+            #High weight for all attacks
+            weight += 25
+        
+        for op_unit in op_units:
+            #Bonus weight for getting near enemies
+            weight += 5 / (math.dist(op_unit.pos, unit.pos) + 1)
+
+        if (move.is_attack):
+            map_manager.reset_temp_hp() 
+        
+        weights[move.pos] = weight
+        unit.pos = saved_pos    #revert back to saved pos
+    
+    #print(weights)
+    win_move = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
+    #print(win_move)
+    return win_move    #Tuple
+
+
 def script_ai(map_manager, unit):
     move_list = map_manager.find_movement(unit)
     my_units = []
@@ -180,11 +225,11 @@ def script_ai(map_manager, unit):
             #Bonus weight for getting near enemies
             weight += 5 / (math.dist(op_unit.pos, unit.pos) + 1)
         
-        for my_unit in my_units:
-            if my_unit == unit:
-                continue
-            #Bonus weight for staying near friends
-            weight += 1 / (math.dist(my_unit.pos, unit.pos) + 1)
+        # for my_unit in my_units:
+        #     if my_unit == unit:
+        #         continue
+        #     #Bonus weight for staying near friends
+        #     weight += 1 / (math.dist(my_unit.pos, unit.pos) + 1)
             
         
         if (move.is_attack):
@@ -203,7 +248,7 @@ def minimax_ai(map_manager, unit, net, k):
 
 
 def sim_game(manager, setup_index, zero_first, my_net, op_net):
-    win = 0
+    fdbk_sum = 0
     #also resets map
     #manager.setup_rand(units_per_side)
     manager.apply_map_layout(setup_index)
@@ -212,7 +257,7 @@ def sim_game(manager, setup_index, zero_first, my_net, op_net):
         #Note that this makes the turn count end earlier
         manager.curr_team = 1
 
-    while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
+    while (manager.game_joever() == -1 and manager.turn_count < 20): #Turn Count limit may have to be modified
         for unit in manager.Teams[manager.curr_team].live_units:
             win_move = (0, 0)
             if manager.curr_team == 0:
@@ -233,9 +278,12 @@ def sim_game(manager, setup_index, zero_first, my_net, op_net):
         print("First game result vs: {}".format(op_net))
         print(manager)
 
+    # if (manager.game_joever() == 0):
+    #     fdbk_sum += 1
     if (manager.game_feedback() == 0):
-        win +=1
-    return win
+        fdbk_sum += 1
+    #fdbk_sum += manager.game_feedback()
+    return fdbk_sum
 
 
 def eval_performance(pool, manager, my_net, op_net):

@@ -4,8 +4,23 @@ import queue
 import os
 import random
 import copy
+from colorama import Fore, Back, Style 
 
 class map_manager:
+    forest_list = [(0, 2), (0, 3), (0, 4), (0, 5),
+                   (1, 2), (1, 3), (1, 4), (1, 5), 
+                   (2, 2), (2, 3), (2, 4), (2, 5),
+                   (3, 2), (3, 3), (3, 4), (3, 5),
+                   (11, 12), (11, 11), (11, 10), (11, 9),
+                   (12, 12), (12, 11), (12, 10), (12, 9),
+                   (13, 12), (13, 11), (13, 10), (13, 9),
+                   (14, 12), (14, 11), (14, 10), (14, 9),
+                   ]
+    hills_list = [(7, 2), (8, 2), (9, 2), (10, 2),
+                  (4, 12), (5, 12), (6, 12), (7, 12),
+                  (5, 7), (6, 7), (7, 7), (8, 7),
+                 ]
+    
     def __init__(self, dimensions):
         self.Map = self.map_init(dimensions)
         self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
@@ -32,7 +47,12 @@ class map_manager:
         Map = np.empty([dimensions[0], dimensions[1]], dtype=Tile)
         for i in range(Map.shape[0]):
             for j in range(Map.shape[1]):
-                Map[i,j] = Tile((i, j), None)
+                terrain_name = 'Plains'
+                if (i, j) in map_manager.forest_list:
+                    terrain_name = 'Forest'
+                if (i, j) in map_manager.hills_list:
+                    terrain_name = 'Hills'
+                Map[i,j] = Tile((i, j), None, terrain_name)
         return Map
 
     def reset_map(self):
@@ -79,23 +99,42 @@ class map_manager:
                     pass
                 else:
                     new_cost = Map[new_pos].tile_cost + curr_tile.move_cost
-                    if (Map[new_pos].move_cost > new_cost and new_cost <= unit.max_move):
+                    att_range = unit.range
+                    #Prevent negative range. NOTE: melee range is 0, not 1
+                    #Range bonus only applies if unit is ranged
+                    if unit.range > 0:
+                        if Map[unit.pos].terrain.range_mod + att_range > 0:
+                            att_range += Map[unit.pos].terrain.range_mod
+                        else:
+                            att_range = 0
+
+                    if (Map[new_pos].move_cost > new_cost and new_cost <= (unit.max_move + att_range)):
                         Map[new_pos].move_cost = new_cost
                         Map[new_pos].move_parent = curr_tile
                         Map[new_pos].rotation = Unit.move_to_rotation[self.directions[i]]
+
                         if (Map[new_pos].unit_ref is not None):
+                            if unit.range > 0:
+                                parent = curr_tile
+                                for i in range(att_range + 1):
+                                    if parent.move_parent is not None:
+                                        parent = parent.move_parent
+                                    else:
+                                        break
+                                Map[new_pos].move_parent = parent
                             Map[new_pos].is_attack = True
                             Map[new_pos].visited = True
+                            self.visited_tiles.append(Map[new_pos])
                         else:
                             #Should prevent movement through opponents
                             prio_queue.put(Map[new_pos])
-                        self.visited_tiles.append(Map[new_pos])
+                            if (new_cost <= unit.max_move):
+                                self.visited_tiles.append(Map[new_pos])
                         
                     
         
-    def place_unit(self, pos, team):
-        #Movement is currently 4
-        new_unit = Unit(pos=pos, hp=100, mmove=3, Att=20, Def=10, Team=team)
+    def place_unit(self, pos, unit_type, team):
+        new_unit = Unit(pos=pos, unit_type=unit_type, Team=team)
         self.Map[pos].unit_ref = new_unit
         self.Units.append(new_unit)
         self.Teams[team].units.append(new_unit)
@@ -156,54 +195,62 @@ class map_manager:
         
         
     def sim_combat(self, att_unit, def_unit):
-        dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        att = att_unit.Att
+        if Unit.is_flank(def_unit, att_unit):
+            att *= 3
+
+        defs = def_unit.Def
+        defs *= self.Map[def_unit.pos].terrain.def_mod
+
+        att_dmg = (defs / att) * 20
+        def_dmg = (att / defs) * 25
         
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
-        
-        #att_unit.temp_hp = att_unit.hp - att_dmg
+        att_unit.temp_hp = att_unit.hp - att_dmg
         def_unit.temp_hp = def_unit.hp - def_dmg
 
         if (def_unit.temp_hp <= 0):
             def_unit.temp_hp = 0
-        #if (att_unit.temp_hp <= 0):
-        #    att_unit.temp_hp = 0
+        if (att_unit.temp_hp <= 0):
+           att_unit.temp_hp = 0
 
     def reset_temp_hp(self):
         for unit in self.Units:
             unit.temp_hp = unit.hp
 
     def combat(self, att_unit, def_unit):
-        dmg_mod = 1
-        # if Unit.is_flank(def_unit, att_unit):
-        #     dmg_mod = 3
+        att = att_unit.Att
+        if Unit.is_flank(def_unit, att_unit):
+            att *= 3
 
-        #att_dmg = (def_unit.Def / att_unit.Att) * 20
-        def_dmg = (att_unit.Att / def_unit.Def) * 25 * dmg_mod
+        defs = def_unit.Def
+        defs *= self.Map[def_unit.pos].terrain.def_mod
 
-        #att_unit.hp -= att_dmg
+        # print("Attack: {}".format(att))
+        # print("Defense: {}".format(defs))
+
+        att_dmg = (defs / att) * 20
+        def_dmg = (att / defs) * 25
+
+        att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
 
         def_unit.temp_hp = def_unit.hp
-        #att_unit.temp_hp = att_unit.hp
+        att_unit.temp_hp = att_unit.hp
 
         if (def_unit.hp <= 0):
             def_unit.hp = 0
             def_unit.temp_hp = def_unit.hp
             
-            #self.Units.remove(def_unit)   #don't remove from all units, this messes up inputs
             self.Teams[def_unit.Team].live_units.remove(def_unit)
             self.Map[def_unit.pos].unit_ref = None
             #del def_unit
 
-        # if (att_unit.hp <= 0):
-        #     att_unit.hp = 0
-        #     att_unit.temp_hp = att_unit.hp
+        if (att_unit.hp <= 0):
+            att_unit.hp = 0
+            att_unit.temp_hp = att_unit.hp
             
-        #     self.Teams[att_unit.Team].live_units.remove(att_unit)
-        #     self.Map[att_unit.pos].unit_ref = None
+            self.Teams[att_unit.Team].live_units.remove(att_unit)
+            self.Map[att_unit.pos].unit_ref = None
     
 
     def Turn(self):
@@ -240,9 +287,21 @@ class map_manager:
         layout = self.map_layouts[i]
 
         for i in range(self.layout_unit_count):
-            self.place_unit(layout[i], 0)
+            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+                unit_type = 'cavalry'
+            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+                unit_type = 'archer'
+            else:
+                unit_type = 'infantry'
+            self.place_unit(layout[i], unit_type, 0)
         for i in range(self.layout_unit_count):
-            self.place_unit(layout[self.layout_unit_count+i], 1)  
+            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+                unit_type = 'cavalry'
+            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+                unit_type = 'archer'
+            else:
+                unit_type = 'infantry'
+            self.place_unit(layout[self.layout_unit_count+i], unit_type, 1)  
 
     def copy_setup(self, other_manager):
         self.dimensions = other_manager.Map.shape
@@ -275,29 +334,50 @@ class map_manager:
         #Units difference
         #return len(self.Teams[0].live_units) - len(self.Teams[1].live_units)
     
-class Tile:
-    def __init__(self, pos, unit):
+class Tile:    
+    class Terrain:
+        def __init__(self, name, range_mod, def_mod, tile_cost):
+            self.name = name
+            self.range_mod = range_mod
+            self.def_mod = def_mod
+            self.tile_cost = tile_cost
+
+    terrain_types = {
+        'Plains': Terrain('Plains', 0, 1.0, 1),
+        'Hills': Terrain('Hills', 1, 2.0, 2),
+        'Forest': Terrain('Forest', -2, 0.5, 3), 
+    }
+
+    def __init__(self, pos, unit, terrain_name):
         self.pos = pos
         self.unit_ref = unit
-        self.tile_cost = 1.0 #Cost to move onto this tile
+        self.terrain = Tile.terrain_types[terrain_name]
+        #Cost to move onto this tile
+        self.tile_cost = self.terrain.tile_cost
 
         self.rotation = -1
+        #Cost of TOTAL path to this tile
         self.move_cost = float('inf')
         self.move_parent = None
         self.visited = False
         self.is_attack = False
 
     def __str__(self):
+        string = ''
         if (self.visited):
-            string = '\033[94m' #Blue
-            endstring = '\033[0m'
-        else:
-            string = ''
-            endstring = ''
+            if self.is_attack:
+                string += Back.RED
+            else:
+                string += Back.BLUE
+        if (self.terrain.name == 'Hills'):
+            string += Fore.YELLOW
+        if (self.terrain.name == 'Forest'):
+            string += Fore.GREEN
+        endstring = Style.RESET_ALL
         if (self.unit_ref == None):
             return string + "[ ]" + endstring
         else:
-            return string + "[{}]".format(self.unit_ref.Team) + endstring
+            return string + "[{}]".format(self.unit_ref.map_char) + endstring
         
     def __lt__(self, other):
         return self.move_cost < other.move_cost
@@ -316,31 +396,42 @@ class Unit:
     #Note: positive 1 in y direction == going downwards
     move_to_rotation = {(0, 1) : 0, (1, 0) : 1, (0, -1) : 2, (-1, 0) : 3} 
 
+    #Default melee range is 0
+    unit_types = {
+        'archer':{'att':20, 'defs':5, 'range':2, 'move':2, 'char':'a'},
+        'infantry':{'att':20, 'defs':10, 'range':0, 'move':2, 'char':'i'},
+        'cavalry':{'att':30, 'defs':5, 'range':0, 'move':4, 'char':'c'}
+    }
+
     def is_flank(def_unit, att_unit):
         if def_unit.rotation == att_unit.rotation:
             return True
         return False
 
 
-    def __init__(self, pos, hp, mmove, Att, Def, Team):
+    def __init__(self, pos, unit_type, Team):
         self.pos = pos
-        self.hp = hp
-        self.temp_hp = hp
+        self.hp = 100
+        self.temp_hp = self.hp
+        self.type = unit_type
         
-        self.max_move = mmove
-        self.curr_move = mmove
+        self.max_move = Unit.unit_types[self.type]['move']
+        self.curr_move = self.max_move
+        self.range = Unit.unit_types[self.type]['range'] 
+        self.Att = Unit.unit_types[self.type]['att'] 
+        self.Def = Unit.unit_types[self.type]['defs'] 
+        self.map_char = Unit.unit_types[self.type]['char']
 
-        self.Att = Att
-        self.Def = Def
         self.Team = Team
         if self.Team == 0:
             self.rotation = Unit.unit_rotations['E']
         elif self.Team == 1:
+            self.map_char = self.map_char.upper()
             self.rotation = Unit.unit_rotations['W']
         
     def __str__(self):
         string = "Unit:\n\tpos: {0}\n\tcurr_move: {1}\n\thp: {2}\n".format(self.pos, self.curr_move, self.hp) 
-        string +="\ttemp_hp: {0}\n".format(self.temp_hp)
+        string +="\ttemp_hp: {0}\n\tType: {1}\n".format(self.temp_hp, self.type)
         string += "\tmax_move: {0}\n\tAtt: {1}\n\tDef: {2}\n\tTeam: {3}\n".format(self.max_move, self.Att, self.Def, self.Team)
         string +="\trotation: {0}\n".format(self.rotation)
         return string

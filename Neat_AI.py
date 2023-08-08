@@ -19,15 +19,15 @@ import my_reporters
 from my_reporters import *
 
 # Global variables
-thread_count = 12
-dimensions = (8, 8)
+thread_count = 16
+dimensions = (15, 15)
 Population = None
 multiprocess_pool = None
 manager = None
 
 def thread_eval(config, op_nets, genome, manager, is_rand):
     games_run = len(manager.map_layouts) * 2
-    wins = 0
+    fdbk_sum = 0
     my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
 
     for k in range(len(op_nets) + 1):
@@ -49,7 +49,7 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
                 #Note that this makes the turn count end earlier
                 manager.curr_team = 1
 
-            while (manager.game_joever() == -1 and manager.turn_count < 10): #Turn Count limit may have to be modified
+            while (manager.game_joever() == -1 and manager.turn_count < 15): #Turn Count limit may have to be modified
                 for unit in manager.Teams[manager.curr_team].live_units:               
                     win_move = (0, 0)
                     if manager.curr_team == 0:
@@ -58,7 +58,9 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
                     elif manager.curr_team == 1:
                         if op_net is None:
                             if is_rand:
-                                win_move = rand_ai(manager, unit)
+                                win_move = simple_script_ai(manager, unit)
+                                #win_move = rand_ai(manager, unit)
+                                #win_move = no_ai(manager, unit)
                             else:
                                 win_move = script_ai(manager, unit)
                         else:
@@ -69,13 +71,13 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
                 manager.Turn()
             
             #print(manager)
-            #sum += manager.game_feedback()
+            #fdbk_sum += manager.game_feedback()
             if (manager.game_feedback() == 0):
-                wins +=1
+                fdbk_sum +=1
 
         #print('games count vs {}: {}'.format(k, games_count))
     
-    return (wins / games_run)
+    return (fdbk_sum / games_run)
 
 
 #This is the Eval Func branch
@@ -134,7 +136,7 @@ def run(config_file, best_networks_list, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 50
+    max_gen_interval = 30
     int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
@@ -142,7 +144,7 @@ def run(config_file, best_networks_list, run_name):
         networks_list=best_networks_list)
     p.add_reporter(best_genomes_reporter)
 
-    eval = eval_reporter(50, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games, 8x8
+    eval = eval_reporter(50, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games
     p.add_reporter(eval)    
 
     plot = plot_reporter(stats_reporter=stats, run_name=run_name, save_file=False, eval_reporter=eval,
@@ -165,7 +167,7 @@ def run(config_file, best_networks_list, run_name):
     #Global manager
     global manager
     manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=25, unit_count=5)
+    manager.setup_layouts_rand(layout_n=25, unit_count=11)  #25x2 games -> 50 games
 
     winner = p.run(eval_genomes, generations)
 
