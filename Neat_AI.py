@@ -57,12 +57,14 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
                         win_move = neat_ai(manager, unit, my_net)
                     elif manager.curr_team == 1:
                         if op_net is None:
-                            if is_rand:
-                                win_move = simple_script_ai(manager, unit)
-                                #win_move = rand_ai(manager, unit)
-                                #win_move = no_ai(manager, unit)
-                            else:
-                                win_move = script_ai(manager, unit)
+                            win_move = rand_ai(manager, unit)
+                        # if op_net is None:
+                        #     if is_rand:
+                        #         win_move = simple_script_ai(manager, unit)
+                        #         #win_move = rand_ai(manager, unit)
+                        #         #win_move = no_ai(manager, unit)
+                        #     else:
+                        #         win_move = script_ai(manager, unit)
                         else:
                             win_move = neat_ai(manager, unit, op_net)
                             #win_move = move_pick_ai(manager, unit, op_net)
@@ -167,7 +169,7 @@ def run(config_file, best_networks_list, run_name):
     #Global manager
     global manager
     manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=25, unit_count=11)  #25x2 games -> 50 games
+    manager.setup_layouts_rand(layout_n=25, unit_count=12)  #25x2 games -> 50 games
 
     winner = p.run(eval_genomes, generations)
 

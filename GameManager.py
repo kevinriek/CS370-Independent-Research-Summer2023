@@ -94,7 +94,6 @@ class map_manager:
                 new_pos = tuple(np.add(curr_pos, self.directions[i]))
                 if (new_pos[0] < 0 or new_pos[0] >= self.Map.shape[0] or
                     new_pos[1] < 0 or new_pos[1] >= self.Map.shape[1] or
-                    (Map[new_pos].unit_ref is not None and Map[new_pos].unit_ref.Team == unit.Team) or
                     Map[new_pos].visited): #or new_pos == unit.pos 
                     pass
                 else:
@@ -109,27 +108,41 @@ class map_manager:
                             att_range = 0
 
                     if (Map[new_pos].move_cost > new_cost and new_cost <= (unit.max_move + att_range)):
-                        Map[new_pos].move_cost = new_cost
-                        Map[new_pos].move_parent = curr_tile
-                        Map[new_pos].rotation = Unit.move_to_rotation[self.directions[i]]
+                        set_parent = False
+                        set_stats = True
 
-                        if (Map[new_pos].unit_ref is not None):
+                        if (Map[new_pos].unit_ref is not None and Map[new_pos].unit_ref.Team != unit.Team):
                             if unit.range > 0:
                                 parent = curr_tile
-                                for i in range(att_range + 1):
+                                for i in range(att_range):
                                     if parent.move_parent is not None:
                                         parent = parent.move_parent
                                     else:
                                         break
+                                if parent.unit_ref is not None and parent.unit_ref is not unit:
+                                    set_stats = False
                                 Map[new_pos].move_parent = parent
+                                set_parent = True
+                            #Prevent melee troops from moving onto another unit to attack
+                            elif Map[curr_pos].unit_ref is not None and Map[curr_pos].unit_ref is not unit:
+                                set_stats = False
                             Map[new_pos].is_attack = True
                             Map[new_pos].visited = True
                             self.visited_tiles.append(Map[new_pos])
+                        # Move or Shoot through allies, but cannot move on top of them
+                        elif (Map[new_pos].unit_ref is not None and Map[new_pos].unit_ref.Team == unit.Team):
+                            prio_queue.put(Map[new_pos])
+                        # Should prevent movement through opponents
                         else:
-                            #Should prevent movement through opponents
                             prio_queue.put(Map[new_pos])
                             if (new_cost <= unit.max_move):
                                 self.visited_tiles.append(Map[new_pos])
+
+                        if set_stats:
+                            Map[new_pos].move_cost = new_cost
+                            if not set_parent:
+                                Map[new_pos].move_parent = curr_tile
+                            Map[new_pos].rotation = Unit.move_to_rotation[self.directions[i]]
                         
                     
         
@@ -204,6 +217,11 @@ class map_manager:
 
         att_dmg = (defs / att) * 20
         def_dmg = (att / defs) * 25
+
+        #No return damage on ranged attacks
+        print('here')
+        if att_unit.range > 0:
+            def_dmg *= 0
         
         att_unit.temp_hp = att_unit.hp - att_dmg
         def_unit.temp_hp = def_unit.hp - def_dmg
@@ -228,8 +246,13 @@ class map_manager:
         # print("Attack: {}".format(att))
         # print("Defense: {}".format(defs))
 
-        att_dmg = (defs / att) * 20
+        att_dmg = (defs / att) * 25
         def_dmg = (att / defs) * 25
+
+        #No return damage on ranged attacks
+        print('here')
+        if att_unit.range > 0:
+            att_dmg *= 0
 
         att_unit.hp -= att_dmg
         def_unit.hp -= def_dmg
@@ -287,17 +310,17 @@ class map_manager:
         layout = self.map_layouts[i]
 
         for i in range(self.layout_unit_count):
-            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+            if (i/self.layout_unit_count) < 2/12 or (i/self.layout_unit_count) >= 10/12:
                 unit_type = 'cavalry'
-            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+            elif (i/self.layout_unit_count) < 4/12 or (i/self.layout_unit_count) >= 8/12: 
                 unit_type = 'archer'
             else:
                 unit_type = 'infantry'
             self.place_unit(layout[i], unit_type, 0)
         for i in range(self.layout_unit_count):
-            if (i/self.layout_unit_count) <= 1/8 or (i/self.layout_unit_count) >= 6/8:
+            if (i/self.layout_unit_count) < 2/12 or (i/self.layout_unit_count) >= 10/12:
                 unit_type = 'cavalry'
-            elif (i/self.layout_unit_count) <= 2/8 or (i/self.layout_unit_count) >= 5/8: 
+            elif (i/self.layout_unit_count) < 4/12 or (i/self.layout_unit_count) >= 8/12: 
                 unit_type = 'archer'
             else:
                 unit_type = 'infantry'
@@ -344,7 +367,7 @@ class Tile:
 
     terrain_types = {
         'Plains': Terrain('Plains', 0, 1.0, 1),
-        'Hills': Terrain('Hills', 1, 2.0, 2),
+        'Hills': Terrain('Hills', 2, 2.0, 2),
         'Forest': Terrain('Forest', -2, 0.5, 3), 
     }
 
