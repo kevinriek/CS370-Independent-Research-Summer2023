@@ -19,7 +19,7 @@ import my_reporters
 from my_reporters import *
 
 # Global variables
-thread_count = 16
+thread_count = 1
 dimensions = (15, 15)
 Population = None
 multiprocess_pool = None
@@ -31,17 +31,24 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
     my_net = neat.nn.FeedForwardNetwork.create(genome, config)    
 
     for k in range(len(op_nets) + 1):
-        #One sequence is random
+        #One sequence is random, for first random interval only
         op_net = None
-        if k != len(op_nets):
-            op_net = op_nets[k]
-
-        for i in range(games_run):
-            #Ensuring even number of games
-            #Skip past this game
-            if i % (len(op_nets)+1) != k:
+        if len(op_nets) > 0:
+            if k == len(op_nets):
                 continue
+            else:
+                op_net = op_nets[k]
 
+        games_count = 0
+        for i in range(games_run):
+            #Does not apply to random phase
+            if op_net is not None:
+                #Ensuring even number of games
+                #Skip past this game
+                if i % (len(op_nets)) != k:
+                    continue
+
+            games_count += 1
             manager.apply_map_layout(i % len(manager.map_layouts))
             
             #Alternate which side starts
@@ -77,8 +84,9 @@ def thread_eval(config, op_nets, genome, manager, is_rand):
             if (manager.game_feedback() == 0):
                 fdbk_sum +=1
 
-        #print('games count vs {}: {}'.format(k, games_count))
+        print('games count vs {}: {}'.format(k, games_count))
     
+    #Returns tuple: 
     return (fdbk_sum / games_run)
 
 
@@ -95,10 +103,11 @@ def eval_genomes(genomes, config):
     for genome_id, genome in genomes:
         #(config, op_net, genomes, manager, gen_count):
         #change managers[0]
-        if len(best_genomes_reporter.gen_intervals) == 0:
-            input_ls.append((config, op_nets, genome, manager, True))
-        else:
-            input_ls.append((config, op_nets, genome, manager, False))
+        # if len(best_genomes_reporter.gen_intervals) == 0:
+        #     input_ls.append((config, op_nets, genome, manager, True))
+        # else:
+        #     input_ls.append((config, op_nets, genome, manager, False))
+        input_ls.append((config, op_nets, genome, manager, False))
 
     ret_fitness = multiprocess_pool.starmap(thread_eval, input_ls)
     #multiprocess_pool.close()
@@ -138,7 +147,7 @@ def run(config_file, best_networks_list, run_name):
     Stats = stats
     p.add_reporter(stats)
     
-    max_gen_interval = 30
+    max_gen_interval = 3
     int_fit_threshold = 1.0
     global best_genomes_reporter
     best_genomes_reporter = genome_reporter(max_generation_interval=max_gen_interval, 
@@ -146,7 +155,7 @@ def run(config_file, best_networks_list, run_name):
         networks_list=best_networks_list)
     p.add_reporter(best_genomes_reporter)
 
-    eval = eval_reporter(50, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games
+    eval = eval_reporter(10, dimensions, best_genomes_reporter, thread_count)     #100 (50 x 2)games
     p.add_reporter(eval)    
 
     plot = plot_reporter(stats_reporter=stats, run_name=run_name, save_file=False, eval_reporter=eval,
@@ -169,7 +178,7 @@ def run(config_file, best_networks_list, run_name):
     #Global manager
     global manager
     manager = map_manager(dimensions)
-    manager.setup_layouts_rand(layout_n=25, unit_count=12)  #25x2 games -> 50 games
+    manager.setup_layouts_rand(layout_n=1, unit_count=12)  #25x2 games -> 50 games
 
     winner = p.run(eval_genomes, generations)
 

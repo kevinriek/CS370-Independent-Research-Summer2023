@@ -18,7 +18,7 @@ class map_manager:
                    ]
     hills_list = [(7, 2), (8, 2), (9, 2), (10, 2),
                   (4, 12), (5, 12), (6, 12), (7, 12),
-                  (5, 7), (6, 7), (7, 7), (8, 7),
+                  (6, 7), (7, 7), (8, 7),
                  ]
     
     def __init__(self, dimensions):
@@ -121,11 +121,13 @@ class map_manager:
                                         break
                                 if parent.unit_ref is not None and parent.unit_ref is not unit:
                                     set_stats = False
+                                    break
                                 Map[new_pos].move_parent = parent
                                 set_parent = True
                             #Prevent melee troops from moving onto another unit to attack
                             elif Map[curr_pos].unit_ref is not None and Map[curr_pos].unit_ref is not unit:
                                 set_stats = False
+                                break
                             Map[new_pos].is_attack = True
                             Map[new_pos].visited = True
                             self.visited_tiles.append(Map[new_pos])
@@ -175,7 +177,6 @@ class map_manager:
     def move_unit(self, unit, pos):
         if pos[0] < 0 or pos[1] < 0:
             assert(False)
-        #move_pos = tuple(np.add(unit.pos, dir))
         if pos == unit.pos:
             return
 
@@ -193,6 +194,14 @@ class map_manager:
             move_tile = tile.move_parent 
             self.Map[unit.pos].unit_ref = None
             unit.pos = move_tile.pos
+            # try:
+            #     unit.pos = move_tile.pos
+            # except:
+            #     print("pos: {}".format(pos))
+            #     print("unit: {}".format(unit))
+            #     print(self)
+            #     assert(False)
+            
             unit.curr_move -= move_tile.move_cost
             move_tile.unit_ref = unit
             
@@ -219,7 +228,6 @@ class map_manager:
         def_dmg = (att / defs) * 25
 
         #No return damage on ranged attacks
-        print('here')
         if att_unit.range > 0:
             def_dmg *= 0
         
@@ -250,7 +258,6 @@ class map_manager:
         def_dmg = (att / defs) * 25
 
         #No return damage on ranged attacks
-        print('here')
         if att_unit.range > 0:
             att_dmg *= 0
 

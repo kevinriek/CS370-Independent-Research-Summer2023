@@ -40,14 +40,18 @@ def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     c = ['b', 'r', 'g', 'c', 'm', 'y']
     ci = 0
     for key, vals in eval_reporter.eval_performance.items():
-        x_vals = []
-        if ci == 0 or ci >= len(gen_intervals):
+        # if ci == 0 or ci >= len(gen_intervals):
+        #     x_vals = list(range(len(vals)))
+        # else:
+        #     x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
+        if key == 'script':
             x_vals = list(range(len(vals)))
+            plt.plot(x_vals, vals, color=c[(ci) % len(c)], label=key)
         else:
             x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
-        plt.plot(x_vals, vals, color=c[(ci) % len(c)], label=key)
-        #plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
-        ci += 1
+            plt.plot(x_vals, vals, color=c[(ci+1) % len(c)], label=key)
+            #plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
+            ci += 1
 
     for x in gen_intervals:
         plt.axvline(x=x, color='k')
@@ -93,6 +97,7 @@ class eval_reporter(neat.reporting.BaseReporter):
         self.manager.setup_layouts_rand(layout_n=games_run, unit_count=12)
         
         self.eval_performance = {}
+        self.eval_stats = {}
         self.genome_reporter = genome_reporter
         self.pool = Pool(thread_count)
 
@@ -100,22 +105,32 @@ class eval_reporter(neat.reporting.BaseReporter):
         #if (self.genome_reporter.is_interval and len(self.genome_reporter.gen_intervals) > 1):
         my_net = neat.nn.FeedForwardNetwork.create(best_genome, config)
         
-        win_rate = eval_performance(self.pool, self.manager, my_net, None)
+        win_rate, stats = eval_performance(self.pool, self.manager, my_net, None)
         if 'script' in self.eval_performance:
             self.eval_performance['script'].append(win_rate)
+            self.eval_stats['script'].append(stats)
         else:
             self.eval_performance['script'] = [win_rate]
-        print("Best genome Winrate vs. {} : {}".format('script', win_rate))
-        
+            self.eval_stats['script'] = [stats]
+        print("Best genome Winrate vs. {} : {:0.2f}".format('script', win_rate))
+        for key, val in stats.items():
+            print("Best genome {} vs. {} : {:0.2f}".format(key, 'script', val))
+
+        print("###############################################")
         for i in range(len(self.genome_reporter.eval_nets)):
             op_net = self.genome_reporter.eval_nets[i]
 
-            win_rate = eval_performance(self.pool, self.manager, my_net, op_net)
+            win_rate, stats = eval_performance(self.pool, self.manager, my_net, op_net)
             if str(i + 1) not in self.eval_performance:
                 self.eval_performance[str(i+1)] = [win_rate]
+                self.eval_stats[str(i+1)] = [stats]
             else:
                 self.eval_performance[str(i+1)].append(win_rate)
-            print("Best genome Winrate vs. {} : {}".format(str(i+1), win_rate))
+                self.eval_stats[str(i+1)].append(stats)
+            print("Best genome Winrate vs. {} : {:0.2f}".format(str(i+1), win_rate))
+            for key, val in stats.items():
+                print("Best genome {} vs. {} : {:0.2f}".format(key, str(i+1), val))
+            print("###############################################")
 
 class genome_reporter(neat.reporting.BaseReporter):
     def __init__(self, max_generation_interval, run_name, Population, interval_fitness_threshold, networks_list):
@@ -140,10 +155,13 @@ class genome_reporter(neat.reporting.BaseReporter):
             
             self.is_interval = True
 
-            # >0 to ignore the first vs. random iteration 
-            if len(self.gen_intervals) > 0:
-                self.eval_nets.append(neat.nn.FeedForwardNetwork.create(best_genome, config))
-            
+            # # >0 to ignore the first vs. random iteration 
+            # if len(self.gen_intervals) > 0:
+            self.eval_nets.append(neat.nn.FeedForwardNetwork.create(best_genome, config))
+            # Keep the number of eval nets at 5
+            if len(self.eval_nets) > 5:
+                self.eval_nets.remove(self.eval_nets[0])
+
             if (len(self.gen_intervals) == 0):
                 self.gen_intervals.append(self.gen_count)
             else:
