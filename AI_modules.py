@@ -402,8 +402,8 @@ def update_stats(manager, stats):
     count_c = 0
 
     for unit1 in manager.Teams[0].live_units:
-        print(len(manager.Teams[0].live_units))
-        if manager.Map[unit1.pos].terrain == 'Forest':
+        #print(len(manager.Teams[0].live_units))
+        if manager.Map[unit1.pos].terrain.name == 'Forest':
             count_f_all +=1
             if unit1.type == 'archer':
                 count_f_a +=1
@@ -411,7 +411,7 @@ def update_stats(manager, stats):
                 count_f_c +=1
             elif unit1.type == 'infantry':
                 count_f_i +=1
-        if manager.Map[unit1.pos].terrain == 'Hills':
+        if manager.Map[unit1.pos].terrain.name == 'Hills':
             count_h_all +=1
             if unit1.type == 'archer':
                 count_h_a +=1

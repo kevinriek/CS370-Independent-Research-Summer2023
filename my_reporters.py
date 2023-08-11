@@ -40,18 +40,13 @@ def plot_eval_performance(eval_reporter, gen_intervals, name, path=""):
     c = ['b', 'r', 'g', 'c', 'm', 'y']
     ci = 0
     for key, vals in eval_reporter.eval_performance.items():
-        # if ci == 0 or ci >= len(gen_intervals):
-        #     x_vals = list(range(len(vals)))
-        # else:
-        #     x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
-        if key == 'script':
+        x_vals = []
+        if ci == 0 or ci >= len(gen_intervals):
             x_vals = list(range(len(vals)))
-            plt.plot(x_vals, vals, color=c[(ci) % len(c)], label=key)
         else:
             x_vals = [x + gen_intervals[ci] for x in list(range(len(vals)))]
-            plt.plot(x_vals, vals, color=c[(ci+1) % len(c)], label=key)
-            #plt.plot(vals, color=c[(ci-1) % len(c)], label=key)
-            ci += 1
+        plt.plot(x_vals, vals, color=c[(ci) % len(c)], label=key)
+        ci += 1
 
     for x in gen_intervals:
         plt.axvline(x=x, color='k')
@@ -114,8 +109,10 @@ class eval_reporter(neat.reporting.BaseReporter):
             self.eval_stats['script'] = [stats]
         print("Best genome Winrate vs. {} : {:0.2f}".format('script', win_rate))
         for key, val in stats.items():
-            print("Best genome {} vs. {} : {:0.2f}".format(key, 'script', val))
-
+            if type(val) is not tuple:
+                print("Best genome {} vs. {} : {:0.2f}".format(key, 'script', val))
+            else:
+                print("Best genome {} vs. {} : ({:0.2f}, {:0.2f})".format(key, 'script', val[0], val[1]))
         print("###############################################")
         for i in range(len(self.genome_reporter.eval_nets)):
             op_net = self.genome_reporter.eval_nets[i]
@@ -129,7 +126,10 @@ class eval_reporter(neat.reporting.BaseReporter):
                 self.eval_stats[str(i+1)].append(stats)
             print("Best genome Winrate vs. {} : {:0.2f}".format(str(i+1), win_rate))
             for key, val in stats.items():
-                print("Best genome {} vs. {} : {:0.2f}".format(key, str(i+1), val))
+                if type(val) is not tuple:
+                    print("Best genome {} vs. {} : {:0.2f}".format(key, str(i+1), val))
+                else:
+                    print("Best genome {} vs. {} : ({:0.2f}, {:0.2f})".format(key, str(i+1), val[0], val[1]))
             print("###############################################")
 
 class genome_reporter(neat.reporting.BaseReporter):
@@ -156,11 +156,8 @@ class genome_reporter(neat.reporting.BaseReporter):
             self.is_interval = True
 
             # # >0 to ignore the first vs. random iteration 
-            # if len(self.gen_intervals) > 0:
-            self.eval_nets.append(neat.nn.FeedForwardNetwork.create(best_genome, config))
-            # Keep the number of eval nets at 5
-            if len(self.eval_nets) > 5:
-                self.eval_nets.remove(self.eval_nets[0])
+            if len(self.gen_intervals) > 0:
+                self.eval_nets.append(neat.nn.FeedForwardNetwork.create(best_genome, config))
 
             if (len(self.gen_intervals) == 0):
                 self.gen_intervals.append(self.gen_count)
